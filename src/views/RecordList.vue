@@ -137,6 +137,13 @@ const columns = [
     formatter: (row: MuralRecord) => getProcessingLabel(row.processingStatus),
   },
   {
+    prop: 'remarks',
+    label: '备注',
+    minWidth: 180,
+    showOverflowTooltip: true,
+    formatter: (row: MuralRecord) => row.remarks || '-',
+  },
+  {
     label: '操作',
     width: 220,
     fixed: 'right' as const,

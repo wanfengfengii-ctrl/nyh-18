@@ -60,11 +60,15 @@ export const RISK_LEVEL_OPTIONS: { value: RiskLevel; label: string; color: strin
 ]
 
 export const DYNASTY_OPTIONS: string[] = [
+  '北凉',
   '北魏',
   '西魏',
   '北周',
   '隋代',
-  '唐代',
+  '初唐',
+  '盛唐',
+  '中唐',
+  '晚唐',
   '五代',
   '宋代',
   '西夏',
@@ -74,13 +78,8 @@ export const DYNASTY_OPTIONS: string[] = [
 ]
 
 export const CAVE_OPTIONS: string[] = [
-  '第257窟',
-  '第259窟',
-  '第275窟',
-  '第285窟',
-  '第320窟',
-  '第323窟',
-  '第428窟',
+  '第3窟',
+  '第16窟',
   '第45窟',
   '第57窟',
   '第96窟',
@@ -90,6 +89,14 @@ export const CAVE_OPTIONS: string[] = [
   '第196窟',
   '第217窟',
   '第220窟',
+  '第257窟',
+  '第259窟',
+  '第275窟',
+  '第285窟',
+  '第320窟',
+  '第323窟',
+  '第428窟',
+  '第465窟',
 ]
 
 export const THEME_OPTIONS: string[] = [
