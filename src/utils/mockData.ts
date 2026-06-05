@@ -1,4 +1,16 @@
-import type { FadingLevel, MuralArea, ObservationRecord, RiskAlert, RiskLevel } from '@/types'
+import type {
+  FadingLevel,
+  MuralArea,
+  ObservationRecord,
+  RiskAlert,
+  RiskLevel,
+  DiseasePoint,
+  EvidencePhoto,
+  ImageComparison,
+  TreatmentRecord,
+  CrackExtension,
+  ColorSample,
+} from '@/types'
 
 function calculateRiskLevelLocal(
   fadingLevel: FadingLevel,
@@ -11,6 +23,10 @@ function calculateRiskLevelLocal(
     return 'medium'
   }
   return 'low'
+}
+
+function generateId(prefix: string, num: number): string {
+  return `${prefix}_${String(num).padStart(4, '0')}`
 }
 
 function formatDateLocal(date: Date): string {
@@ -180,4 +196,115 @@ function fadingLevelToText(level: FadingLevel): string {
     severe: '严重',
   }
   return map[level]
+}
+
+export const mockDiseasePoints: DiseasePoint[] = []
+export const mockEvidencePhotos: EvidencePhoto[] = []
+export const mockImageComparisons: ImageComparison[] = []
+export const mockTreatmentRecords: TreatmentRecord[] = []
+export const mockCrackExtensions: CrackExtension[] = []
+export const mockColorSamples: ColorSample[] = []
+
+let diseasePointIndex = 0
+let photoIndex = 0
+let comparisonIndex = 0
+let treatmentIndex = 0
+
+areaDefinitions.forEach((def, areaIndex) => {
+  const areaId = `AREA_${String(areaIndex + 1).padStart(4, '0')}`
+  const areaObs = mockObservations.filter((o) => o.areaId === areaId)
+
+  areaObs.forEach((obs, obsIndex) => {
+    const diseaseCount = Math.floor(Math.random() * 4) + 1
+    for (let i = 0; i < diseaseCount; i++) {
+      const types = ['crack', 'fading', 'peeling', 'mold', 'salt', 'damage', 'other'] as const
+      const type = types[Math.floor(Math.random() * types.length)]
+      diseasePointIndex++
+      mockDiseasePoints.push({
+        id: generateId('DP', diseasePointIndex),
+        areaId,
+        observationId: obs.id,
+        type,
+        name: `${diseaseTypeToText(type)}点位${i + 1}`,
+        x: Math.floor(Math.random() * 80) + 10,
+        y: Math.floor(Math.random() * 80) + 10,
+        width: Math.floor(Math.random() * 20) + 5,
+        height: Math.floor(Math.random() * 20) + 5,
+        description: `${diseaseTypeToText(type)}病害，${['轻微', '中度', '严重'][Math.floor(Math.random() * 3)]}程度`,
+        severity: (['mild', 'moderate', 'severe'] as const)[Math.floor(Math.random() * 3)],
+        createdAt: obs.observationDate,
+        updatedAt: obs.observationDate,
+      })
+    }
+
+    photoIndex++
+    const photoDate = addDays(new Date(obs.observationDate), Math.floor(Math.random() * 10))
+    mockEvidencePhotos.push({
+      id: generateId('PHOTO', photoIndex),
+      areaId,
+      observationId: obs.id,
+      fileName: `${def.areaCode}_${obs.observationDate.replace(/-/g, '')}_${obsIndex + 1}.jpg`,
+      fileUrl: `https://picsum.photos/seed/${areaId}_${obsIndex}/800/600`,
+      thumbnailUrl: `https://picsum.photos/seed/${areaId}_${obsIndex}/200/150`,
+      photoDate: obs.observationDate,
+      uploadDate: formatDateLocal(photoDate),
+      uploadedBy: '张研究员',
+      description: `${obs.observationDate} 现场拍摄照片`,
+      isProcessed: Math.random() > 0.3,
+    })
+  })
+
+  if (areaObs.length >= 2) {
+    comparisonIndex++
+    const beforeObs = areaObs[areaObs.length - 1]
+    const afterObs = areaObs[0]
+    const changeTypes = ['stable', 'improved', 'worsened', 'new'] as const
+    const changeType = changeTypes[Math.floor(Math.random() * changeTypes.length)]
+    mockImageComparisons.push({
+      id: generateId('COMP', comparisonIndex),
+      areaId,
+      beforeImage: mockEvidencePhotos.find((p) => p.observationId === beforeObs.id)! || mockEvidencePhotos[0],
+      afterImage: mockEvidencePhotos.find((p) => p.observationId === afterObs.id)! || mockEvidencePhotos[0],
+      diseasePoints: mockDiseasePoints.filter((d) => d.areaId === areaId),
+      changeAnalysis: `对比 ${beforeObs.observationDate} 与 ${afterObs.observationDate} 的影像变化分析显示：${changeType === 'improved' ? '病害情况有所改善' : changeType === 'worsened' ? '病害情况有所恶化' : changeType === 'new' ? '发现新增病害' : '状态基本稳定'}`,
+      changeType,
+      createdBy: '李研究员',
+      createdAt: formatDateLocal(new Date()),
+    })
+  }
+
+  treatmentIndex++
+  mockTreatmentRecords.push({
+    id: generateId('TREAT', treatmentIndex),
+    areaId,
+    observationId: areaObs[0].id,
+    title: `${def.theme} 修复方案`,
+    status: ['proposed', 'inProgress', 'completed', 'verified'][Math.floor(Math.random() * 4)] as any,
+    proposedBy: '王工程师',
+    approvedBy: Math.random() > 0.5 ? '李主任' : null,
+    startDate: Math.random() > 0.3 ? formatDateLocal(addDays(new Date(areaObs[0].observationDate), 7)) : null,
+    completedDate: Math.random() > 0.6 ? formatDateLocal(addDays(new Date(areaObs[0].observationDate), 30)) : null,
+    steps: [
+      { id: 'STEP_001', step: 1, description: '表面清洁除尘', operator: '张工', completedAt: formatDateLocal(addDays(new Date(areaObs[0].observationDate), 1)), images: [], remarks: '已完成表面灰尘清理' },
+      { id: 'STEP_002', step: 2, description: '病害加固处理', operator: '李工', completedAt: formatDateLocal(addDays(new Date(areaObs[0].observationDate), 5)), images: [], remarks: '使用专用加固剂进行加固' },
+      { id: 'STEP_003', step: 3, description: '补色修复', operator: '王工', completedAt: null, images: [], remarks: '' },
+    ],
+    materials: '专用加固剂、矿物颜料、黏合剂',
+    description: '针对该区域的病害情况，制定详细的修复方案包括表面清洁、病害加固和补色修复三个主要步骤。',
+    createdAt: formatDateLocal(new Date(areaObs[0].observationDate)),
+    updatedAt: formatDateLocal(new Date()),
+  })
+})
+
+function diseaseTypeToText(type: string): string {
+  const map: Record<string, string> = {
+    crack: '裂隙',
+    fading: '褪变',
+    peeling: '起甲',
+    mold: '霉斑',
+    salt: '盐析',
+    damage: '破损',
+    other: '其他',
+  }
+  return map[type] || type
 }

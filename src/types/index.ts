@@ -6,6 +6,12 @@ export type RiskLevel = 'low' | 'medium' | 'high'
 
 export type AlertType = 'overdue' | 'highRisk' | 'newRisk'
 
+export type DiseaseType = 'crack' | 'fading' | 'peeling' | 'mold' | 'salt' | 'damage' | 'other'
+
+export type ChangeType = 'stable' | 'improved' | 'worsened' | 'new'
+
+export type TreatmentStatus = 'proposed' | 'inProgress' | 'completed' | 'verified'
+
 export interface ObservationRecord {
   id: string
   areaId: string
@@ -145,6 +151,158 @@ export const CAVE_OPTIONS: string[] = [
   '第465窟',
 ]
 
+export interface DiseasePoint {
+  id: string
+  areaId: string
+  observationId: string
+  type: DiseaseType
+  name: string
+  x: number
+  y: number
+  width: number
+  height: number
+  description: string
+  severity: 'mild' | 'moderate' | 'severe'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CrackTrackPoint {
+  x: number
+  y: number
+  order: number
+}
+
+export interface CrackExtension {
+  id: string
+  areaId: string
+  points: CrackTrackPoint[]
+  observationDates: string[]
+  lengths: number[]
+  createdAt: string
+}
+
+export interface ColorSample {
+  id: string
+  areaId: string
+  name: string
+  x: number
+  y: number
+  observationId: string
+  observationDate: string
+  r: number
+  g: number
+  b: number
+  l: number
+  a: number
+  b: number
+  createdAt: string
+}
+
+export interface ColorChangeAnalysis {
+  areaId: string
+  sampleName: string
+  startDate: string
+  endDate: string
+  deltaE: number
+  changeType: 'improved' | 'worsened' | 'stable'
+}
+
+export interface TreatmentStep {
+  id: string
+  step: number
+  description: string
+  operator: string
+  completedAt: string | null
+  images: string[]
+  remarks: string
+}
+
+export interface TreatmentRecord {
+  id: string
+  areaId: string
+  observationId: string
+  title: string
+  status: TreatmentStatus
+  proposedBy: string
+  approvedBy: string | null
+  startDate: string | null
+  completedDate: string | null
+  steps: TreatmentStep[]
+  materials: string
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EvidencePhoto {
+  id: string
+  areaId: string
+  observationId: string
+  fileName: string
+  fileUrl: string
+  thumbnailUrl: string
+  photoDate: string
+  uploadDate: string
+  uploadedBy: string
+  description: string
+  isProcessed: boolean
+}
+
+export interface ImageComparison {
+  id: string
+  areaId: string
+  beforeImage: EvidencePhoto
+  afterImage: EvidencePhoto
+  diseasePoints: DiseasePoint[]
+  changeAnalysis: string
+  changeType: ChangeType
+  createdBy: string
+  createdAt: string
+}
+
+export interface EvidenceStats {
+  totalPhotos: number
+  totalComparisons: number
+  totalDiseasePoints: number
+  totalTreatments: number
+  completedTreatments: number
+  pendingTreatments: number
+  colorChanges: { area: string; deltaE: number; changeType: string }[]
+  crackExtensions: { area: string; extension: number; period: string }[]
+  abnormalChanges: {
+    areaId: string
+    areaCode: string
+    caveName: string
+    theme: string
+    changeType: string
+    description: string
+    detectedAt: string
+  }[]
+  recentComparisons: {
+    id: string
+    areaCode: string
+    caveName: string
+    theme: string
+    beforeDate: string
+    afterDate: string
+    changeType: string
+  }[]
+  monthlyComparisons: { date: string; count: number }[]
+  diseaseDistribution: { name: string; value: number }[]
+}
+
+export interface EvidenceFilterParams {
+  caveName: string
+  areaId: string
+  startDate: string
+  endDate: string
+  diseaseType: DiseaseType | ''
+  changeType: ChangeType | ''
+  treatmentStatus: TreatmentStatus | ''
+  keyword: string
+}
+
 export const THEME_OPTIONS: string[] = [
   '九色鹿本生',
   '尸毗王本生',
@@ -177,4 +335,28 @@ export const COLOR_OPTIONS: string[] = [
   '黑石',
   '白云母',
   '土红',
+]
+
+export const DISEASE_TYPE_OPTIONS: { value: DiseaseType; label: string; color: string }[] = [
+  { value: 'crack', label: '裂隙', color: '#f56c6c' },
+  { value: 'fading', label: '褪变', color: '#e6a23c' },
+  { value: 'peeling', label: '起甲', color: '#f97316' },
+  { value: 'mold', label: '霉斑', color: '#67c23a' },
+  { value: 'salt', label: '盐析', color: '#409eff' },
+  { value: 'damage', label: '破损', color: '#909399' },
+  { value: 'other', label: '其他', color: '#9b59b6' },
+]
+
+export const CHANGE_TYPE_OPTIONS: { value: ChangeType; label: string; color: string }[] = [
+  { value: 'stable', label: '稳定', color: '#67c23a' },
+  { value: 'improved', label: '改善', color: '#409eff' },
+  { value: 'worsened', label: '恶化', color: '#f56c6c' },
+  { value: 'new', label: '新增', color: '#e6a23c' },
+]
+
+export const TREATMENT_STATUS_OPTIONS: { value: TreatmentStatus; label: string; color: string }[] = [
+  { value: 'proposed', label: '方案待审', color: '#909399' },
+  { value: 'inProgress', label: '修复中', color: '#e6a23c' },
+  { value: 'completed', label: '修复完成', color: '#409eff' },
+  { value: 'verified', label: '已验收', color: '#67c23a' },
 ]

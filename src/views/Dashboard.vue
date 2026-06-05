@@ -14,8 +14,10 @@ const trendChartRef = ref<HTMLElement | null>(null)
 const progressChartRef = ref<HTMLElement | null>(null)
 const caveChartRef = ref<HTMLElement | null>(null)
 const riskTrendChartRef = ref<HTMLElement | null>(null)
+const evidenceChartRef = ref<HTMLElement | null>(null)
 
 const stats = computed(() => store.dashboardStats)
+const evidenceStats = computed(() => store.evidenceStats)
 
 const riskPieOption = computed(() =>
   createPieOption(stats.value.riskDistribution, '风险等级分布')
@@ -78,12 +80,17 @@ const riskTrendChartOption = computed(() => {
   } as any
 })
 
+const evidenceTrendOption = computed(() =>
+  createBarOption(evidenceStats.value.monthlyComparisons, '月度影像对比趋势', '#c4a76c')
+)
+
 useECharts(riskChartRef, riskPieOption.value)
 useECharts(dynastyChartRef, dynastyBarOption.value)
 useECharts(trendChartRef, trendLineOption.value)
 useECharts(progressChartRef, progressRingOption.value)
 useECharts(caveChartRef, caveBarOption.value)
 useECharts(riskTrendChartRef, riskTrendChartOption.value)
+useECharts(evidenceChartRef, evidenceTrendOption.value)
 
 function goToAreas() {
   router.push('/areas')
@@ -92,6 +99,10 @@ function goToAreas() {
 function goToAlerts() {
   router.push('/alerts')
 }
+
+function goToEvidence() {
+  router.push('/evidence')
+}
 </script>
 
 <template>
@@ -99,6 +110,10 @@ function goToAlerts() {
     <div class="page-header">
       <h1 class="page-title">数据概览</h1>
       <p class="page-subtitle">实时监控石窟壁画保护状况，掌握全局动态</p>
+    </div>
+
+    <div class="section-title">
+      <h2>基础数据统计</h2>
     </div>
 
     <div class="stat-grid">
@@ -159,6 +174,111 @@ function goToAlerts() {
       />
     </div>
 
+    <div class="section-title">
+      <h2>影像取证统计</h2>
+      <el-button type="primary" link @click="goToEvidence">
+        查看详情 <el-icon><ArrowRight /></el-icon>
+      </el-button>
+    </div>
+
+    <div class="stat-grid">
+      <StatCard
+        title="取证照片"
+        :value="evidenceStats.totalPhotos"
+        icon="Camera"
+        color="#c4a76c"
+        suffix="张"
+        trend-label="累计上传"
+        @click="goToEvidence"
+      />
+      <StatCard
+        title="影像对比"
+        :value="evidenceStats.totalComparisons"
+        icon="Comparison"
+        color="#4682b4"
+        suffix="次"
+        trend-label="累计对比"
+        @click="goToEvidence"
+      />
+      <StatCard
+        title="病害点位"
+        :value="evidenceStats.totalDiseasePoints"
+        icon="Location"
+        color="#f56c6c"
+        suffix="个"
+        trend-label="累计标注"
+        @click="goToEvidence"
+      />
+      <StatCard
+        title="修复方案"
+        :value="evidenceStats.totalTreatments"
+        icon="Document"
+        color="#67c23a"
+        suffix="份"
+        trend-label="累计制定"
+        @click="goToEvidence"
+      />
+      <StatCard
+        title="待处理"
+        :value="evidenceStats.pendingTreatments"
+        icon="Timer"
+        color="#e6a23c"
+        suffix="份"
+        trend-label="进行中"
+        @click="goToEvidence"
+      />
+      <StatCard
+        title="已完成"
+        :value="evidenceStats.completedTreatments"
+        icon="CircleCheck"
+        color="#5f9ea0"
+        suffix="份"
+        trend-label="已验收"
+        @click="goToEvidence"
+      />
+    </div>
+
+    <div class="section-title" v-if="evidenceStats.abnormalChanges.length > 0">
+      <h2 class="warning-title">
+        <el-icon><WarningFilled /></el-icon>
+        异常变化预警
+      </h2>
+      <el-badge :value="evidenceStats.abnormalChanges.length" type="danger">
+        <el-button type="primary" link @click="goToEvidence">
+          查看全部
+        </el-button>
+      </el-badge>
+    </div>
+
+    <div class="alert-section" v-if="evidenceStats.abnormalChanges.length > 0">
+      <div
+        v-for="alert in evidenceStats.abnormalChanges.slice(0, 5)"
+        :key="alert.areaId + alert.detectedAt"
+        class="alert-item"
+        @click="goToAreas()"
+      >
+        <div class="alert-icon">
+          <el-icon :size="28" color="#f56c6c">
+            <WarningFilled />
+          </el-icon>
+        </div>
+        <div class="alert-content">
+          <div class="alert-header">
+            <span class="alert-area">{{ alert.areaCode }}</span>
+            <span class="alert-theme">{{ alert.theme }}</span>
+            <el-tag type="danger" size="small" effect="dark">
+              {{ alert.changeType }}
+            </el-tag>
+          </div>
+          <div class="alert-cave">洞窟: {{ alert.caveName }}</div>
+          <div class="alert-desc">{{ alert.description }}</div>
+        </div>
+        <div class="alert-time">
+          {{ alert.detectedAt }}
+        </div>
+      </div>
+    </div>
+
     <div class="chart-grid">
       <div class="chart-card">
         <div ref="riskChartRef" class="chart-container"></div>
@@ -171,6 +291,9 @@ function goToAlerts() {
       </div>
       <div class="chart-card chart-wide">
         <div ref="trendChartRef" class="chart-container"></div>
+      </div>
+      <div class="chart-card chart-wide">
+        <div ref="evidenceChartRef" class="chart-container"></div>
       </div>
       <div class="chart-card">
         <div ref="dynastyChartRef" class="chart-container"></div>
@@ -203,11 +326,123 @@ function goToAlerts() {
   margin: 0;
 }
 
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  margin-top: 32px;
+
+  h2 {
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+    margin: 0;
+    font-weight: 600;
+  }
+
+  &:first-of-type {
+    margin-top: 0;
+  }
+}
+
+.warning-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-danger) !important;
+
+  .el-icon {
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.alert-section {
+  background: rgba(245, 108, 108, 0.03);
+  border: 1px solid rgba(245, 108, 108, 0.15);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: var(--border-radius-base);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(245, 108, 108, 0.15);
+  }
+}
+
+.alert-icon {
+  flex-shrink: 0;
+}
+
+.alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.alert-area {
+  background: var(--color-danger);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.alert-theme {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-cave {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.alert-desc {
+  font-size: 13px;
+  color: var(--color-text-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-time {
+  font-size: 12px;
+  color: var(--color-text-placeholder);
+  flex-shrink: 0;
 }
 
 .chart-grid {
@@ -235,6 +470,16 @@ function goToAlerts() {
 .chart-container {
   width: 100%;
   height: 320px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 @media (max-width: 1600px) {

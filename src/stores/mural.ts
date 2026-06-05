@@ -10,13 +10,34 @@ import type {
   RiskLevel,
   RiskAlert,
   RiskTrendItem,
+  DiseasePoint,
+  EvidencePhoto,
+  ImageComparison,
+  TreatmentRecord,
+  EvidenceStats,
+  EvidenceFilterParams,
+  DiseaseType,
+  ChangeType,
+  TreatmentStatus,
 } from '@/types'
-import { mockAreas, mockObservations, mockAlerts } from '@/utils/mockData'
+import {
+  mockAreas,
+  mockObservations,
+  mockAlerts,
+  mockDiseasePoints,
+  mockEvidencePhotos,
+  mockImageComparisons,
+  mockTreatmentRecords,
+} from '@/utils/mockData'
 import { generateId, calculateRiskLevel, getMonthStartDate } from '@/utils'
 
 const AREAS_STORAGE_KEY = 'mural_areas'
 const OBSERVATIONS_STORAGE_KEY = 'mural_observations'
 const ALERTS_STORAGE_KEY = 'mural_alerts'
+const DISEASE_POINTS_STORAGE_KEY = 'mural_disease_points'
+const EVIDENCE_PHOTOS_STORAGE_KEY = 'mural_evidence_photos'
+const IMAGE_COMPARISONS_STORAGE_KEY = 'mural_image_comparisons'
+const TREATMENT_RECORDS_STORAGE_KEY = 'mural_treatment_records'
 
 function loadAreasFromStorage(): MuralArea[] {
   try {
@@ -78,6 +99,86 @@ function saveAlertsToStorage(alerts: RiskAlert[]): void {
   }
 }
 
+function loadDiseasePointsFromStorage(): DiseasePoint[] {
+  try {
+    const data = localStorage.getItem(DISEASE_POINTS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load disease points from storage:', e)
+  }
+  return [...mockDiseasePoints]
+}
+
+function loadEvidencePhotosFromStorage(): EvidencePhoto[] {
+  try {
+    const data = localStorage.getItem(EVIDENCE_PHOTOS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load evidence photos from storage:', e)
+  }
+  return [...mockEvidencePhotos]
+}
+
+function loadImageComparisonsFromStorage(): ImageComparison[] {
+  try {
+    const data = localStorage.getItem(IMAGE_COMPARISONS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load image comparisons from storage:', e)
+  }
+  return [...mockImageComparisons]
+}
+
+function loadTreatmentRecordsFromStorage(): TreatmentRecord[] {
+  try {
+    const data = localStorage.getItem(TREATMENT_RECORDS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load treatment records from storage:', e)
+  }
+  return [...mockTreatmentRecords]
+}
+
+function saveDiseasePointsToStorage(diseasePoints: DiseasePoint[]): void {
+  try {
+    localStorage.setItem(DISEASE_POINTS_STORAGE_KEY, JSON.stringify(diseasePoints))
+  } catch (e) {
+    console.error('Failed to save disease points to storage:', e)
+  }
+}
+
+function saveEvidencePhotosToStorage(photos: EvidencePhoto[]): void {
+  try {
+    localStorage.setItem(EVIDENCE_PHOTOS_STORAGE_KEY, JSON.stringify(photos))
+  } catch (e) {
+    console.error('Failed to save evidence photos to storage:', e)
+  }
+}
+
+function saveImageComparisonsToStorage(comparisons: ImageComparison[]): void {
+  try {
+    localStorage.setItem(IMAGE_COMPARISONS_STORAGE_KEY, JSON.stringify(comparisons))
+  } catch (e) {
+    console.error('Failed to save image comparisons to storage:', e)
+  }
+}
+
+function saveTreatmentRecordsToStorage(records: TreatmentRecord[]): void {
+  try {
+    localStorage.setItem(TREATMENT_RECORDS_STORAGE_KEY, JSON.stringify(records))
+  } catch (e) {
+    console.error('Failed to save treatment records to storage:', e)
+  }
+}
+
 function calculateOverdueStatus(lastObservationDate: string): { isOverdue: boolean; overdueDays: number } {
   const lastDate = new Date(lastObservationDate)
   const now = new Date()
@@ -93,6 +194,11 @@ export const useMuralStore = defineStore('mural', () => {
   const currentArea = ref<MuralArea | null>(null)
   const areaObservations = ref<ObservationRecord[]>([])
 
+  const diseasePoints = ref<DiseasePoint[]>(loadDiseasePointsFromStorage())
+  const evidencePhotos = ref<EvidencePhoto[]>(loadEvidencePhotosFromStorage())
+  const imageComparisons = ref<ImageComparison[]>(loadImageComparisonsFromStorage())
+  const treatmentRecords = ref<TreatmentRecord[]>(loadTreatmentRecordsFromStorage())
+
   const filterParams = ref<AreaFilterParams>({
     caveName: '',
     dynasty: '',
@@ -101,6 +207,17 @@ export const useMuralStore = defineStore('mural', () => {
     keyword: '',
     dateRange: [],
     isOverdue: null,
+  })
+
+  const evidenceFilterParams = ref<EvidenceFilterParams>({
+    caveName: '',
+    areaId: '',
+    startDate: '',
+    endDate: '',
+    diseaseType: '',
+    changeType: '',
+    treatmentStatus: '',
+    keyword: '',
   })
 
   const loading = ref(false)
@@ -156,6 +273,163 @@ export const useMuralStore = defineStore('mural', () => {
   const overdueAreas = computed(() => areas.value.filter((a) => a.isOverdue))
 
   const pendingAreas = computed(() => areas.value.filter((a) => a.currentProcessingStatus === 'pending'))
+
+  const filteredImageComparisons = computed(() => {
+    let result = [...imageComparisons.value]
+
+    if (evidenceFilterParams.value.caveName) {
+      const areaIds = areas.value
+        .filter((a) => a.caveName === evidenceFilterParams.value.caveName)
+        .map((a) => a.id)
+      result = result.filter((c) => areaIds.includes(c.areaId))
+    }
+
+    if (evidenceFilterParams.value.areaId) {
+      result = result.filter((c) => c.areaId === evidenceFilterParams.value.areaId)
+    }
+
+    if (evidenceFilterParams.value.changeType) {
+      result = result.filter((c) => c.changeType === evidenceFilterParams.value.changeType)
+    }
+
+    if (evidenceFilterParams.value.keyword) {
+      const keyword = evidenceFilterParams.value.keyword.toLowerCase()
+      result = result.filter((c) => {
+        const area = areas.value.find((a) => a.id === c.areaId)
+        return (
+          c.changeAnalysis.toLowerCase().includes(keyword) ||
+          area?.theme.toLowerCase().includes(keyword) ||
+          area?.areaCode.toLowerCase().includes(keyword)
+        )
+      })
+    }
+
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    return result
+  })
+
+  const filteredTreatmentRecords = computed(() => {
+    let result = [...treatmentRecords.value]
+
+    if (evidenceFilterParams.value.caveName) {
+      const areaIds = areas.value
+        .filter((a) => a.caveName === evidenceFilterParams.value.caveName)
+        .map((a) => a.id)
+      result = result.filter((t) => areaIds.includes(t.areaId))
+    }
+
+    if (evidenceFilterParams.value.areaId) {
+      result = result.filter((t) => t.areaId === evidenceFilterParams.value.areaId)
+    }
+
+    if (evidenceFilterParams.value.treatmentStatus) {
+      result = result.filter((t) => t.status === evidenceFilterParams.value.treatmentStatus)
+    }
+
+    if (evidenceFilterParams.value.keyword) {
+      const keyword = evidenceFilterParams.value.keyword.toLowerCase()
+      result = result.filter((t) => t.title.toLowerCase().includes(keyword) || t.description.toLowerCase().includes(keyword))
+    }
+
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    return result
+  })
+
+  const filteredDiseasePoints = computed(() => {
+    let result = [...diseasePoints.value]
+
+    if (evidenceFilterParams.value.caveName) {
+      const areaIds = areas.value
+        .filter((a) => a.caveName === evidenceFilterParams.value.caveName)
+        .map((a) => a.id)
+      result = result.filter((d) => areaIds.includes(d.areaId))
+    }
+
+    if (evidenceFilterParams.value.areaId) {
+      result = result.filter((d) => d.areaId === evidenceFilterParams.value.areaId)
+    }
+
+    if (evidenceFilterParams.value.diseaseType) {
+      result = result.filter((d) => d.type === evidenceFilterParams.value.diseaseType)
+    }
+
+    return result
+  })
+
+  const evidenceStats = computed<EvidenceStats>(() => {
+    const totalPhotos = evidencePhotos.value.length
+    const totalComparisons = imageComparisons.value.length
+    const totalDiseasePoints = diseasePoints.value.length
+    const totalTreatments = treatmentRecords.value.length
+    const completedTreatments = treatmentRecords.value.filter((t) => t.status === 'completed' || t.status === 'verified').length
+    const pendingTreatments = treatmentRecords.value.filter((t) => t.status === 'proposed' || t.status === 'inProgress').length
+
+    const diseaseCounts: Record<string, number> = {}
+    diseasePoints.value.forEach((d) => {
+      diseaseCounts[d.type] = (diseaseCounts[d.type] || 0) + 1
+    })
+
+    const diseaseDistribution = Object.entries(diseaseCounts).map(([name, value]) => ({
+      name: diseaseTypeToLabel(name),
+      value,
+    }))
+
+    const abnormalChanges = imageComparisons.value
+      .filter((c) => c.changeType === 'worsened' || c.changeType === 'new')
+      .map((c) => {
+        const area = areas.value.find((a) => a.id === c.areaId)
+        return {
+          areaId: c.areaId,
+          areaCode: area?.areaCode || '',
+          caveName: area?.caveName || '',
+          theme: area?.theme || '',
+          changeType: c.changeType === 'worsened' ? '病害恶化' : '新增病害',
+          description: c.changeAnalysis,
+          detectedAt: c.createdAt,
+        }
+      })
+      .slice(0, 10)
+
+    const recentComparisons = imageComparisons.value
+      .slice(0, 10)
+      .map((c) => {
+        const area = areas.value.find((a) => a.id === c.areaId)
+        return {
+          id: c.id,
+          areaCode: area?.areaCode || '',
+          caveName: area?.caveName || '',
+          theme: area?.theme || '',
+          beforeDate: c.beforeImage?.photoDate || '',
+          afterDate: c.afterImage?.photoDate || '',
+          changeType: c.changeType,
+        }
+      })
+
+    const monthlyMap: Record<string, number> = {}
+    imageComparisons.value.forEach((c) => {
+      const month = c.createdAt.substring(0, 7)
+      monthlyMap[month] = (monthlyMap[month] || 0) + 1
+    })
+
+    const monthlyComparisons = Object.entries(monthlyMap)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    return {
+      totalPhotos,
+      totalComparisons,
+      totalDiseasePoints,
+      totalTreatments,
+      completedTreatments,
+      pendingTreatments,
+      colorChanges: [],
+      crackExtensions: [],
+      abnormalChanges,
+      recentComparisons,
+      monthlyComparisons,
+      diseaseDistribution,
+    }
+  })
 
   const dashboardStats = computed<DashboardStats>(() => {
     const allAreas = areas.value
@@ -548,6 +822,170 @@ export const useMuralStore = defineStore('mural', () => {
     })
   }
 
+  function diseaseTypeToLabel(type: string): string {
+    const map: Record<string, string> = {
+      crack: '裂隙',
+      fading: '褪变',
+      peeling: '起甲',
+      mold: '霉斑',
+      salt: '盐析',
+      damage: '破损',
+      other: '其他',
+    }
+    return map[type] || type
+  }
+
+  function getDiseasePointsByAreaId(areaId: string): DiseasePoint[] {
+    return diseasePoints.value.filter((d) => d.areaId === areaId)
+  }
+
+  function getDiseasePointsByObservationId(observationId: string): DiseasePoint[] {
+    return diseasePoints.value.filter((d) => d.observationId === observationId)
+  }
+
+  function addDiseasePoint(data: Omit<DiseasePoint, 'id' | 'createdAt' | 'updatedAt'>): DiseasePoint {
+    const now = new Date().toISOString()
+    const newPoint: DiseasePoint = {
+      ...data,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+    diseasePoints.value.unshift(newPoint)
+    saveDiseasePointsToStorage(diseasePoints.value)
+    return newPoint
+  }
+
+  function updateDiseasePoint(id: string, data: Partial<Omit<DiseasePoint, 'id' | 'createdAt'>>): DiseasePoint | null {
+    const index = diseasePoints.value.findIndex((d) => d.id === id)
+    if (index === -1) return null
+
+    const updated: DiseasePoint = {
+      ...diseasePoints.value[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    }
+    diseasePoints.value[index] = updated
+    saveDiseasePointsToStorage(diseasePoints.value)
+    return updated
+  }
+
+  function deleteDiseasePoint(id: string): boolean {
+    const index = diseasePoints.value.findIndex((d) => d.id === id)
+    if (index === -1) return false
+    diseasePoints.value.splice(index, 1)
+    saveDiseasePointsToStorage(diseasePoints.value)
+    return true
+  }
+
+  function getEvidencePhotosByAreaId(areaId: string): EvidencePhoto[] {
+    return evidencePhotos.value.filter((p) => p.areaId === areaId)
+  }
+
+  function getEvidencePhotosByObservationId(observationId: string): EvidencePhoto[] {
+    return evidencePhotos.value.filter((p) => p.observationId === observationId)
+  }
+
+  function addEvidencePhoto(data: Omit<EvidencePhoto, 'id' | 'uploadDate'>): EvidencePhoto {
+    const now = new Date().toISOString()
+    const newPhoto: EvidencePhoto = {
+      ...data,
+      id: generateId(),
+      uploadDate: now.split('T')[0],
+    }
+    evidencePhotos.value.unshift(newPhoto)
+    saveEvidencePhotosToStorage(evidencePhotos.value)
+    return newPhoto
+  }
+
+  function deleteEvidencePhoto(id: string): boolean {
+    const index = evidencePhotos.value.findIndex((p) => p.id === id)
+    if (index === -1) return false
+    evidencePhotos.value.splice(index, 1)
+    saveEvidencePhotosToStorage(evidencePhotos.value)
+    return true
+  }
+
+  function getImageComparisonsByAreaId(areaId: string): ImageComparison[] {
+    return imageComparisons.value.filter((c) => c.areaId === areaId)
+  }
+
+  function addImageComparison(data: Omit<ImageComparison, 'id' | 'createdAt'>): ImageComparison {
+    const now = new Date().toISOString()
+    const newComparison: ImageComparison = {
+      ...data,
+      id: generateId(),
+      createdAt: now,
+    }
+    imageComparisons.value.unshift(newComparison)
+    saveImageComparisonsToStorage(imageComparisons.value)
+    return newComparison
+  }
+
+  function deleteImageComparison(id: string): boolean {
+    const index = imageComparisons.value.findIndex((c) => c.id === id)
+    if (index === -1) return false
+    imageComparisons.value.splice(index, 1)
+    saveImageComparisonsToStorage(imageComparisons.value)
+    return true
+  }
+
+  function getTreatmentRecordsByAreaId(areaId: string): TreatmentRecord[] {
+    return treatmentRecords.value.filter((t) => t.areaId === areaId)
+  }
+
+  function addTreatmentRecord(data: Omit<TreatmentRecord, 'id' | 'createdAt' | 'updatedAt'>): TreatmentRecord {
+    const now = new Date().toISOString()
+    const newRecord: TreatmentRecord = {
+      ...data,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+    treatmentRecords.value.unshift(newRecord)
+    saveTreatmentRecordsToStorage(treatmentRecords.value)
+    return newRecord
+  }
+
+  function updateTreatmentRecord(id: string, data: Partial<Omit<TreatmentRecord, 'id' | 'createdAt'>>): TreatmentRecord | null {
+    const index = treatmentRecords.value.findIndex((t) => t.id === id)
+    if (index === -1) return null
+
+    const updated: TreatmentRecord = {
+      ...treatmentRecords.value[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    }
+    treatmentRecords.value[index] = updated
+    saveTreatmentRecordsToStorage(treatmentRecords.value)
+    return updated
+  }
+
+  function deleteTreatmentRecord(id: string): boolean {
+    const index = treatmentRecords.value.findIndex((t) => t.id === id)
+    if (index === -1) return false
+    treatmentRecords.value.splice(index, 1)
+    saveTreatmentRecordsToStorage(treatmentRecords.value)
+    return true
+  }
+
+  function setEvidenceFilterParams(params: Partial<EvidenceFilterParams>): void {
+    evidenceFilterParams.value = { ...evidenceFilterParams.value, ...params }
+  }
+
+  function resetEvidenceFilterParams(): void {
+    evidenceFilterParams.value = {
+      caveName: '',
+      areaId: '',
+      startDate: '',
+      endDate: '',
+      diseaseType: '',
+      changeType: '',
+      treatmentStatus: '',
+      keyword: '',
+    }
+  }
+
   return {
     areas,
     observations,
@@ -556,12 +994,21 @@ export const useMuralStore = defineStore('mural', () => {
     areaObservations,
     filterParams,
     loading,
+    diseasePoints,
+    evidencePhotos,
+    imageComparisons,
+    treatmentRecords,
+    evidenceFilterParams,
     filteredAreas,
     unreadAlerts,
     highRiskAreas,
     overdueAreas,
     pendingAreas,
+    filteredImageComparisons,
+    filteredTreatmentRecords,
+    filteredDiseasePoints,
     dashboardStats,
+    evidenceStats,
     getAreaById,
     getObservationsByAreaId,
     getRiskTrendByAreaId,
@@ -581,5 +1028,23 @@ export const useMuralStore = defineStore('mural', () => {
     resetFilterParams,
     resetData,
     refreshOverdueStatus,
+    getDiseasePointsByAreaId,
+    getDiseasePointsByObservationId,
+    addDiseasePoint,
+    updateDiseasePoint,
+    deleteDiseasePoint,
+    getEvidencePhotosByAreaId,
+    getEvidencePhotosByObservationId,
+    addEvidencePhoto,
+    deleteEvidencePhoto,
+    getImageComparisonsByAreaId,
+    addImageComparison,
+    deleteImageComparison,
+    getTreatmentRecordsByAreaId,
+    addTreatmentRecord,
+    updateTreatmentRecord,
+    deleteTreatmentRecord,
+    setEvidenceFilterParams,
+    resetEvidenceFilterParams,
   }
 })
