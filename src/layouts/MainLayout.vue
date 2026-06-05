@@ -15,8 +15,8 @@ const menuItems = computed(() => {
 })
 
 const activeMenu = computed(() => {
-  if (route.path.startsWith('/records')) {
-    return '/records'
+  if (route.path.startsWith('/areas')) {
+    return '/areas'
   }
   return route.path
 })

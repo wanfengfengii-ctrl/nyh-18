@@ -2,9 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
 import Dashboard from '@/views/Dashboard.vue'
-import RecordList from '@/views/RecordList.vue'
-import RecordForm from '@/views/RecordForm.vue'
-import RecordDetail from '@/views/RecordDetail.vue'
+import AreaList from '@/views/AreaList.vue'
+import AreaDetail from '@/views/AreaDetail.vue'
+import AlertBoard from '@/views/AlertBoard.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -22,42 +22,31 @@ const routes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'records',
-        name: 'RecordList',
-        component: RecordList,
+        path: 'areas',
+        name: 'AreaList',
+        component: AreaList,
         meta: {
-          title: '壁画记录',
-          icon: 'List',
+          title: '区域档案',
+          icon: 'Picture',
         },
       },
       {
-        path: 'records/new',
-        name: 'RecordNew',
-        component: RecordForm,
+        path: 'areas/:id',
+        name: 'AreaDetail',
+        component: AreaDetail,
         meta: {
-          title: '新增记录',
-          icon: 'Plus',
-          hidden: true,
-        },
-      },
-      {
-        path: 'records/:id',
-        name: 'RecordDetail',
-        component: RecordDetail,
-        meta: {
-          title: '记录详情',
+          title: '区域详情',
           icon: 'Document',
           hidden: true,
         },
       },
       {
-        path: 'records/:id/edit',
-        name: 'RecordEdit',
-        component: RecordForm,
+        path: 'alerts',
+        name: 'AlertBoard',
+        component: AlertBoard,
         meta: {
-          title: '编辑记录',
-          icon: 'Edit',
-          hidden: true,
+          title: '风险预警',
+          icon: 'Warning',
         },
       },
     ],

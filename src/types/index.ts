@@ -4,40 +4,86 @@ export type ProcessingStatus = 'pending' | 'processing' | 'completed'
 
 export type RiskLevel = 'low' | 'medium' | 'high'
 
-export interface MuralRecord {
+export type AlertType = 'overdue' | 'highRisk' | 'newRisk'
+
+export interface ObservationRecord {
+  id: string
+  areaId: string
+  observationDate: string
+  fadingLevel: FadingLevel
+  crackLength: number
+  riskLevel: RiskLevel
+  processingStatus: ProcessingStatus
+  remarks: string
+  images: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MuralArea {
   id: string
   areaCode: string
   caveName: string
   theme: string
   dynasty: string
-  observationDate: string
   mainColors: string
-  fadingLevel: FadingLevel
-  crackLength: number
-  processingStatus: ProcessingStatus
-  riskLevel: RiskLevel
-  remarks: string
+  location: string
+  description: string
+  firstObservationDate: string
+  lastObservationDate: string
+  currentRiskLevel: RiskLevel
+  currentProcessingStatus: ProcessingStatus
+  observationCount: number
+  isOverdue: boolean
+  overdueDays: number
   createdAt: string
   updatedAt: string
 }
 
-export interface FilterParams {
+export interface RiskAlert {
+  id: string
+  areaId: string
+  areaCode: string
+  caveName: string
+  theme: string
+  type: AlertType
+  title: string
+  description: string
+  riskLevel: RiskLevel
+  createdAt: string
+  isRead: boolean
+}
+
+export interface RiskTrendItem {
+  date: string
+  riskLevel: RiskLevel
+  fadingLevel: FadingLevel
+  crackLength: number
+}
+
+export interface AreaFilterParams {
   caveName: string
   dynasty: string
   riskLevel: RiskLevel | ''
   processingStatus: ProcessingStatus | ''
   keyword: string
+  dateRange: [string, string] | []
+  isOverdue: boolean | null
 }
 
 export interface DashboardStats {
-  totalRecords: number
+  totalAreas: number
+  totalObservations: number
   pendingCount: number
   highRiskCount: number
+  overdueCount: number
   monthlyNewCount: number
   riskDistribution: { name: string; value: number }[]
   dynastyDistribution: { name: string; value: number }[]
   fadingTrend: { date: string; count: number }[]
   processingProgress: { name: string; value: number }[]
+  caveDistribution: { name: string; value: number }[]
+  riskTrend: { date: string; low: number; medium: number; high: number }[]
 }
 
 export const FADING_LEVEL_OPTIONS: { value: FadingLevel; label: string }[] = [
