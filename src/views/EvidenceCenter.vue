@@ -494,35 +494,17 @@ function handleMarkerClick(point: any) {
                   <span>{{ comp.createdAt }}</span>
                 </div>
               </div>
-              <div class="comparison-images">
-                <div class="image-wrapper">
-                  <div class="image-label">修复前</div>
-                  <img
-                    v-if="comp.beforeImage"
-                    :src="comp.beforeImage.thumbnailUrl"
-                    :alt="comp.beforeImage.description"
-                  />
-                  <div v-else class="image-placeholder">暂无图片</div>
-                  <div class="image-date">
-                    {{ comp.beforeImage?.photoDate }}
-                  </div>
-                </div>
-                <div class="compare-arrow">
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-                <div class="image-wrapper">
-                  <div class="image-label">修复后</div>
-                  <img
-                    v-if="comp.afterImage"
-                    :src="comp.afterImage.thumbnailUrl"
-                    :alt="comp.afterImage.description"
-                  />
-                  <div v-else class="image-placeholder">暂无图片</div>
-                  <div class="image-date">
-                    {{ comp.afterImage?.photoDate }}
-                  </div>
-                </div>
+              
+              <div class="slider-compare-section" v-if="comp.beforeImage && comp.afterImage">
+                <ImageCompare
+                  :before-image="comp.beforeImage"
+                  :after-image="comp.afterImage"
+                  :disease-points="comp.diseasePoints"
+                  :show-markers="true"
+                  @marker-click="handleMarkerClick"
+                />
               </div>
+              
               <div class="comparison-analysis">
                 <span class="analysis-label">变化分析:</span>
                 {{ comp.changeAnalysis }}
@@ -545,8 +527,18 @@ function handleMarkerClick(point: any) {
                   +{{ comp.diseasePoints.length - 5 }}
                 </el-tag>
               </div>
+              <div class="comparison-actions">
+                <el-button size="small" @click="openCompareDetail(comp)">
+                  <el-icon><ZoomIn /></el-icon>
+                  查看大图
+                </el-button>
+                <el-button size="small" type="primary">
+                  <el-icon><Edit /></el-icon>
+                  编辑标注
+                </el-button>
+              </div>
             </div>
-            <el-empty v-if="comparisons.length === 0" description="暂无影像对比记录" />
+            <el-empty v-if="comparisons.length === 0" description="暂无影像对比记录，点击右上角「创建对比」开始" />
           </div>
         </el-tab-pane>
 
@@ -685,6 +677,199 @@ function handleMarkerClick(point: any) {
         </el-tab-pane>
       </el-tabs>
     </div>
+
+    <el-dialog
+      v-model="showUploadDialog"
+      title="上传现场照片"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="uploadForm" label-width="100px">
+        <el-form-item label="选择区域" required>
+          <el-select
+            v-model="uploadForm.areaId"
+            placeholder="请选择壁画区域"
+            style="width: 100%"
+            filterable
+          >
+            <el-option
+              v-for="area in areaOptions"
+              :key="area.value"
+              :label="area.label"
+              :value="area.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="观测记录">
+          <el-input
+            v-model="uploadForm.observationId"
+            placeholder="关联观测记录ID（可选）"
+          />
+        </el-form-item>
+        <el-form-item label="拍摄日期">
+          <el-date-picker
+            v-model="uploadForm.photoDate"
+            type="date"
+            placeholder="选择拍摄日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="照片描述">
+          <el-input
+            v-model="uploadForm.description"
+            type="textarea"
+            :rows="2"
+            placeholder="请输入照片描述"
+          />
+        </el-form-item>
+        <el-form-item label="选择照片">
+          <el-upload
+            :auto-upload="false"
+            :on-change="handleUploadChange"
+            :before-upload="beforeUpload"
+            :file-list="uploadFiles"
+            multiple
+            list-type="picture-card"
+            accept="image/*"
+            class="uploader"
+          >
+            <el-icon class="uploader-icon"><Plus /></el-icon>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 jpg/png 格式，单张不超过 10MB
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showUploadDialog = false">取消</el-button>
+        <el-button type="primary" :loading="uploadLoading" @click="submitUpload">
+          确认上传
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="showCompareDialog"
+      :title="selectedComparison ? '影像对比详情' : '创建影像对比'"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="!selectedComparison">
+        <el-form :model="compareForm" label-width="100px">
+          <el-form-item label="选择区域" required>
+            <el-select
+              v-model="compareForm.areaId"
+              placeholder="请选择壁画区域"
+              style="width: 100%"
+              filterable
+            >
+              <el-option
+                v-for="area in areaOptions"
+                :key="area.value"
+                :label="area.label"
+                :value="area.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="修复前照片" required>
+                <el-select
+                  v-model="compareForm.beforePhotoId"
+                  placeholder="选择较早的照片"
+                  style="width: 100%"
+                  :disabled="!compareForm.areaId"
+                >
+                  <el-option
+                    v-for="opt in photoOptionsByArea"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="修复后照片" required>
+                <el-select
+                  v-model="compareForm.afterPhotoId"
+                  placeholder="选择较新的照片"
+                  style="width: 100%"
+                  :disabled="!compareForm.areaId"
+                >
+                  <el-option
+                    v-for="opt in photoOptionsByArea"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="变化类型">
+            <el-select v-model="compareForm.changeType" style="width: 100%">
+              <el-option
+                v-for="opt in changeTypeOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="变化分析">
+            <el-input
+              v-model="compareForm.changeAnalysis"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入变化分析说明"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <div v-else class="compare-detail">
+        <ImageCompare
+          :before-image="selectedComparison.beforeImage"
+          :after-image="selectedComparison.afterImage"
+          :disease-points="selectedComparison.diseasePoints"
+          :show-markers="true"
+          @marker-click="handleMarkerClick"
+        />
+        <div class="detail-info">
+          <h4>变化分析</h4>
+          <p>{{ selectedComparison.changeAnalysis }}</p>
+        </div>
+      </div>
+      <template #footer>
+        <template v-if="!selectedComparison">
+          <el-button @click="showCompareDialog = false">取消</el-button>
+          <el-button type="primary" @click="createComparison">
+            创建对比
+          </el-button>
+        </template>
+        <template v-else>
+          <el-button @click="selectedComparison = null; showCompareDialog = false">
+            关闭
+          </el-button>
+        </template>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="showColorDialog"
+      title="颜色变化分析"
+      width="1000px"
+      :close-on-click-modal="false"
+    >
+      <ColorAnalyzer />
+      <template #footer>
+        <el-button @click="showColorDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -697,6 +882,17 @@ function handleMarkerClick(point: any) {
   margin-bottom: 24px;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .page-title {
   font-size: var(--font-size-2xl);
   margin-bottom: 4px;
@@ -707,6 +903,55 @@ function handleMarkerClick(point: any) {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin: 0;
+}
+
+.slider-compare-section {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-lighter);
+}
+
+.comparison-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-lighter);
+}
+
+.compare-detail {
+  .detail-info {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--color-bg-body);
+    border-radius: 8px;
+
+    h4 {
+      margin: 0 0 8px 0;
+      color: var(--color-text-primary);
+    }
+
+    p {
+      margin: 0;
+      color: var(--color-text-regular);
+      line-height: 1.6;
+    }
+  }
+}
+
+.uploader {
+  :deep(.el-upload-list--picture-card) {
+    .el-upload-list__item {
+      width: 100px;
+      height: 100px;
+    }
+  }
+
+  :deep(.el-upload--picture-card) {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 .stat-grid {
