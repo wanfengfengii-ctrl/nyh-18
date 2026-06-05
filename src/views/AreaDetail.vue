@@ -3,7 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit } from '@element-plus/icons-vue'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
+import { useObservationStore } from '@/stores/observation'
+import { useAlertStore } from '@/stores/alert'
 import { useECharts } from '@/composables/useECharts'
 import type { RiskLevel, ProcessingStatus, FadingLevel, ObservationRecord } from '@/types'
 import {
@@ -19,12 +21,14 @@ import {
 
 const router = useRouter()
 const route = useRoute()
-const store = useMuralStore()
+const areaStore = useAreaStore()
+const observationStore = useObservationStore()
+const alertStore = useAlertStore()
 
 const areaId = computed(() => route.params.id as string)
-const area = computed(() => store.getAreaById(areaId.value))
-const observations = computed(() => store.areaObservations)
-const riskTrend = computed(() => store.getRiskTrendByAreaId(areaId.value))
+const area = computed(() => areaStore.getAreaById(areaId.value))
+const observations = computed(() => observationStore.areaObservations)
+const riskTrend = computed(() => observationStore.getRiskTrendByAreaId(areaId.value))
 
 const showAddObservation = ref(false)
 const showEditObservation = ref(false)
@@ -156,13 +160,15 @@ useECharts(trendChartRef, trendChartOption.value)
 
 onMounted(() => {
   if (areaId.value) {
-    store.setCurrentArea(areaId.value)
+    areaStore.setCurrentArea(areaId.value)
+    observationStore.setAreaObservations(areaId.value)
   }
 })
 
 watch(areaId, (newId) => {
   if (newId) {
-    store.setCurrentArea(newId as string)
+    areaStore.setCurrentArea(newId as string)
+    observationStore.setAreaObservations(newId as string)
   }
 })
 
@@ -214,7 +220,7 @@ function handleAddObservation() {
 function submitObservation() {
   newObservationFormRef.value.validate((valid: boolean) => {
     if (valid) {
-      const success = store.addObservation(areaId.value, newObservation.value)
+      const success = observationStore.addObservation(areaId.value, newObservation.value)
       if (success) {
         ElMessage.success('观察记录已添加')
         showAddObservation.value = false
@@ -250,7 +256,7 @@ function handleEditObservation(obs: ObservationRecord) {
 function submitEditObservation() {
   editObservationFormRef.value.validate((valid: boolean) => {
     if (valid) {
-      const success = store.updateObservation(editObservation.value.id, {
+      const success = observationStore.updateObservation(editObservation.value.id, {
         observationDate: editObservation.value.observationDate,
         fadingLevel: editObservation.value.fadingLevel,
         crackLength: editObservation.value.crackLength,
@@ -292,7 +298,7 @@ async function deleteObservation(obs: ObservationRecord) {
         confirmButtonClass: 'el-button--danger',
       }
     )
-    const success = store.deleteObservation(obs.id)
+    const success = observationStore.deleteObservation(obs.id)
     if (success) {
       ElMessage.success('删除成功')
       showObservationDetail.value = false
@@ -300,11 +306,12 @@ async function deleteObservation(obs: ObservationRecord) {
       ElMessage.error('删除失败')
     }
   } catch {
+    // 用户取消操作
   }
 }
 
 function updateStatus(status: ProcessingStatus) {
-  const success = store.updateProcessingStatus(areaId.value, status)
+  const success = observationStore.updateProcessingStatus(areaId.value, status)
   if (success) {
     ElMessage.success('状态已更新')
   } else {
@@ -325,14 +332,17 @@ async function handleDelete() {
         confirmButtonClass: 'el-button--danger',
       }
     )
-    const success = store.deleteArea(areaId.value)
-    if (success) {
+    const areaSuccess = areaStore.deleteArea(areaId.value)
+    if (areaSuccess) {
+      observationStore.observations = observationStore.observations.filter((o) => o.areaId !== areaId.value)
+      alertStore.deleteAlertsByAreaId(areaId.value)
       ElMessage.success('删除成功')
       router.push('/areas')
     } else {
       ElMessage.error('删除失败')
     }
   } catch {
+    // 用户取消操作
   }
 }
 
@@ -356,19 +366,31 @@ const compareObservations = computed(() => {
 </script>
 
 <template>
-  <div class="area-detail" v-if="area">
+  <div
+    v-if="area"
+    class="area-detail"
+  >
     <div class="page-header">
-      <el-page-header @back="goBack" content="区域详情">
+      <el-page-header
+        content="区域详情"
+        @back="goBack"
+      >
         <template #extra>
           <el-button @click="goToEdit">
             <el-icon><Edit /></el-icon>
             编辑区域
           </el-button>
-          <el-button type="primary" @click="handleAddObservation">
+          <el-button
+            type="primary"
+            @click="handleAddObservation"
+          >
             <el-icon><Plus /></el-icon>
             新增观察
           </el-button>
-          <el-button type="danger" @click="handleDelete">
+          <el-button
+            type="danger"
+            @click="handleDelete"
+          >
             <el-icon><Delete /></el-icon>
             删除区域
           </el-button>
@@ -379,7 +401,9 @@ const compareObservations = computed(() => {
     <div class="detail-header">
       <div class="header-info">
         <div class="title-row">
-          <h1 class="area-title">{{ area.theme }}</h1>
+          <h1 class="area-title">
+            {{ area.theme }}
+          </h1>
           <el-tag
             v-if="area.isOverdue"
             type="danger"
@@ -425,8 +449,14 @@ const compareObservations = computed(() => {
 
     <el-row :gutter="24">
       <el-col :span="16">
-        <el-tabs v-model="activeTab" class="detail-tabs">
-          <el-tab-pane label="观察时间轴" name="timeline">
+        <el-tabs
+          v-model="activeTab"
+          class="detail-tabs"
+        >
+          <el-tab-pane
+            label="观察时间轴"
+            name="timeline"
+          >
             <div class="info-card">
               <h3 class="card-title">
                 <el-icon><Time /></el-icon>
@@ -434,86 +464,123 @@ const compareObservations = computed(() => {
               </h3>
               <div class="timeline">
                 <div
-                v-for="(obs, index) in observations"
-                :key="obs.id"
-                class="timeline-item"
-                :class="{ first: index === 0 }"
-              >
-                <div class="timeline-marker" @click="viewObservationDetail(obs)">
+                  v-for="(obs, index) in observations"
+                  :key="obs.id"
+                  class="timeline-item"
+                  :class="{ first: index === 0 }"
+                >
                   <div
-                    class="marker-dot"
-                    :class="`risk-${obs.riskLevel}`"
-                  ></div>
-                  <div v-if="index < observations.length - 1" class="marker-line"></div>
-                </div>
-                <div class="timeline-content" @click="viewObservationDetail(obs)">
-                  <div class="timeline-date">
-                    <span class="date-text">{{ obs.observationDate }}</span>
-                    <span v-if="index === 0" class="badge-latest">最新</span>
-                  </div>
-                  <div class="timeline-tags">
-                    <el-tag
-                      :type="riskTagType(obs.riskLevel)"
-                      size="small"
-                      effect="light"
-                    >
-                      {{ getRiskLabel(obs.riskLevel) }}
-                    </el-tag>
-                    <el-tag
-                      :type="fadingTagType(obs.fadingLevel)"
-                      size="small"
-                      effect="light"
-                    >
-                      褪变: {{ getFadingLabel(obs.fadingLevel) }}
-                    </el-tag>
-                    <el-tag size="small" effect="light">
-                      裂隙: {{ obs.crackLength }}cm
-                    </el-tag>
-                    <el-tag
-                      :type="statusTagType(obs.processingStatus)"
-                      size="small"
-                      effect="light"
-                    >
-                      {{ getProcessingLabel(obs.processingStatus) }}
-                    </el-tag>
-                  </div>
-                  <div class="timeline-remarks" v-if="obs.remarks">
-                    {{ obs.remarks }}
-                  </div>
-                </div>
-                <div class="timeline-actions">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    :icon="Edit"
-                    text
-                    @click.stop="handleEditObservation(obs)"
+                    class="timeline-marker"
+                    @click="viewObservationDetail(obs)"
                   >
-                    编辑
-                  </el-button>
+                    <div
+                      class="marker-dot"
+                      :class="`risk-${obs.riskLevel}`"
+                    />
+                    <div
+                      v-if="index < observations.length - 1"
+                      class="marker-line"
+                    />
+                  </div>
+                  <div
+                    class="timeline-content"
+                    @click="viewObservationDetail(obs)"
+                  >
+                    <div class="timeline-date">
+                      <span class="date-text">{{ obs.observationDate }}</span>
+                      <span
+                        v-if="index === 0"
+                        class="badge-latest"
+                      >最新</span>
+                    </div>
+                    <div class="timeline-tags">
+                      <el-tag
+                        :type="riskTagType(obs.riskLevel)"
+                        size="small"
+                        effect="light"
+                      >
+                        {{ getRiskLabel(obs.riskLevel) }}
+                      </el-tag>
+                      <el-tag
+                        :type="fadingTagType(obs.fadingLevel)"
+                        size="small"
+                        effect="light"
+                      >
+                        褪变: {{ getFadingLabel(obs.fadingLevel) }}
+                      </el-tag>
+                      <el-tag
+                        size="small"
+                        effect="light"
+                      >
+                        裂隙: {{ obs.crackLength }}cm
+                      </el-tag>
+                      <el-tag
+                        :type="statusTagType(obs.processingStatus)"
+                        size="small"
+                        effect="light"
+                      >
+                        {{ getProcessingLabel(obs.processingStatus) }}
+                      </el-tag>
+                    </div>
+                    <div
+                      v-if="obs.remarks"
+                      class="timeline-remarks"
+                    >
+                      {{ obs.remarks }}
+                    </div>
+                  </div>
+                  <div class="timeline-actions">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      :icon="Edit"
+                      text
+                      @click.stop="handleEditObservation(obs)"
+                    >
+                      编辑
+                    </el-button>
+                  </div>
                 </div>
-              </div>
-                <el-empty v-if="observations.length === 0" description="暂无观察记录" />
+                <el-empty
+                  v-if="observations.length === 0"
+                  description="暂无观察记录"
+                />
               </div>
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="风险趋势" name="trend">
+          <el-tab-pane
+            label="风险趋势"
+            name="trend"
+          >
             <div class="info-card">
-              <div ref="trendChartRef" class="chart-container"></div>
+              <div
+                ref="trendChartRef"
+                class="chart-container"
+              />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="前后对比" name="compare">
+          <el-tab-pane
+            label="前后对比"
+            name="compare"
+          >
             <div class="info-card">
               <h3 class="card-title">
                 <el-icon><Comparison /></el-icon>
                 首次与最新观察对比
               </h3>
-              <div v-if="compareObservations" class="compare-grid">
+              <div
+                v-if="compareObservations"
+                class="compare-grid"
+              >
                 <div class="compare-card">
-                  <div class="compare-label">首次观察</div>
-                  <div class="compare-date">{{ compareObservations.first.observationDate }}</div>
+                  <div class="compare-label">
+                    首次观察
+                  </div>
+                  <div class="compare-date">
+                    {{ compareObservations.first.observationDate }}
+                  </div>
                   <div class="compare-stats">
                     <div class="stat-item">
                       <span class="stat-label">风险等级</span>
@@ -554,8 +621,12 @@ const compareObservations = computed(() => {
                 </div>
 
                 <div class="compare-card latest">
-                  <div class="compare-label">最新观察</div>
-                  <div class="compare-date">{{ compareObservations.latest.observationDate }}</div>
+                  <div class="compare-label">
+                    最新观察
+                  </div>
+                  <div class="compare-date">
+                    {{ compareObservations.latest.observationDate }}
+                  </div>
                   <div class="compare-stats">
                     <div class="stat-item">
                       <span class="stat-label">风险等级</span>
@@ -566,12 +637,12 @@ const compareObservations = computed(() => {
                         {{ getRiskLabel(compareObservations.latest.riskLevel) }}
                       </el-tag>
                       <span
+                        v-if="compareObservations.latest.riskLevel !== compareObservations.first.riskLevel"
                         class="change-badge"
                         :class="{
                           up: compareObservations.latest.riskLevel === 'high' && compareObservations.first.riskLevel !== 'high',
                           down: compareObservations.latest.riskLevel === 'low' && compareObservations.first.riskLevel !== 'low',
                         }"
-                        v-if="compareObservations.latest.riskLevel !== compareObservations.first.riskLevel"
                       >
                         <el-icon>
                           <TrendCharts v-if="compareObservations.latest.riskLevel === 'high' && compareObservations.first.riskLevel !== 'high'" />
@@ -592,14 +663,14 @@ const compareObservations = computed(() => {
                       <span class="stat-label">裂隙长度</span>
                       <span class="stat-value">{{ compareObservations.latest.crackLength }} cm</span>
                       <span
-                        class="change-badge up"
                         v-if="compareObservations.latest.crackLength > compareObservations.first.crackLength"
+                        class="change-badge up"
                       >
                         +{{ compareObservations.latest.crackLength - compareObservations.first.crackLength }}
                       </span>
                       <span
-                        class="change-badge down"
                         v-else-if="compareObservations.latest.crackLength < compareObservations.first.crackLength"
+                        class="change-badge down"
                       >
                         {{ compareObservations.latest.crackLength - compareObservations.first.crackLength }}
                       </span>
@@ -616,7 +687,10 @@ const compareObservations = computed(() => {
                   </div>
                 </div>
               </div>
-              <el-empty v-else description="需要至少2条观察记录才能进行对比" />
+              <el-empty
+                v-else
+                description="需要至少2条观察记录才能进行对比"
+              />
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -649,7 +723,9 @@ const compareObservations = computed(() => {
             </el-tag>
           </div>
           <div class="status-actions">
-            <div class="action-label">快速更新状态：</div>
+            <div class="action-label">
+              快速更新状态：
+            </div>
             <div class="action-buttons">
               <el-button
                 type="info"
@@ -682,7 +758,10 @@ const compareObservations = computed(() => {
             当前风险评估
           </h3>
           <div class="risk-display">
-            <div class="risk-circle" :class="`risk-${area.currentRiskLevel}`">
+            <div
+              class="risk-circle"
+              :class="`risk-${area.currentRiskLevel}`"
+            >
               <span class="risk-text">{{ getRiskLabel(area.currentRiskLevel) }}</span>
             </div>
           </div>
@@ -701,7 +780,9 @@ const compareObservations = computed(() => {
                 <el-icon v-if="observations.length > 0 && (observations[0].fadingLevel === 'severe' || observations[0].crackLength > 50)">
                   <CircleCheck />
                 </el-icon>
-                <el-icon v-else><CircleClose /></el-icon>
+                <el-icon v-else>
+                  <CircleClose />
+                </el-icon>
                 高风险：褪变严重 或 裂隙 > 50cm
               </li>
               <li
@@ -718,15 +799,21 @@ const compareObservations = computed(() => {
                     ((observations[0].fadingLevel === 'moderate' ||
                       (observations[0].crackLength >= 20 && observations[0].crackLength <= 50)) &&
                       observations[0].riskLevel !== 'high')"
-                ><CircleCheck /></el-icon>
-                <el-icon v-else><CircleClose /></el-icon>
+                >
+                  <CircleCheck />
+                </el-icon>
+                <el-icon v-else>
+                  <CircleClose />
+                </el-icon>
                 中风险：褪变中度 或 裂隙 20-50cm
               </li>
               <li :class="{ active: observations.length > 0 && area.currentRiskLevel === 'low' }">
                 <el-icon v-if="observations.length > 0 && area.currentRiskLevel === 'low'">
-                  <CircleCheck
-                /></el-icon>
-                <el-icon v-else><CircleClose /></el-icon>
+                  <CircleCheck />
+                </el-icon>
+                <el-icon v-else>
+                  <CircleClose />
+                </el-icon>
                 低风险：其他情况
               </li>
             </ul>
@@ -793,7 +880,10 @@ const compareObservations = computed(() => {
         :rules="observationFormRules"
         label-width="100px"
       >
-        <el-form-item label="观察日期" prop="observationDate">
+        <el-form-item
+          label="观察日期"
+          prop="observationDate"
+        >
           <el-date-picker
             v-model="newObservation.observationDate"
             type="date"
@@ -803,8 +893,15 @@ const compareObservations = computed(() => {
             placeholder="请选择观察日期"
           />
         </el-form-item>
-        <el-form-item label="褪变等级" prop="fadingLevel">
-          <el-select v-model="newObservation.fadingLevel" style="width: 100%" placeholder="请选择褪变等级">
+        <el-form-item
+          label="褪变等级"
+          prop="fadingLevel"
+        >
+          <el-select
+            v-model="newObservation.fadingLevel"
+            style="width: 100%"
+            placeholder="请选择褪变等级"
+          >
             <el-option
               v-for="item in FADING_LEVEL_OPTIONS"
               :key="item.value"
@@ -813,7 +910,10 @@ const compareObservations = computed(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="裂隙长度(cm)" prop="crackLength">
+        <el-form-item
+          label="裂隙长度(cm)"
+          prop="crackLength"
+        >
           <el-input-number
             v-model="newObservation.crackLength"
             :min="0"
@@ -823,8 +923,15 @@ const compareObservations = computed(() => {
             controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="处理状态" prop="processingStatus">
-          <el-select v-model="newObservation.processingStatus" style="width: 100%" placeholder="请选择处理状态">
+        <el-form-item
+          label="处理状态"
+          prop="processingStatus"
+        >
+          <el-select
+            v-model="newObservation.processingStatus"
+            style="width: 100%"
+            placeholder="请选择处理状态"
+          >
             <el-option
               v-for="item in PROCESSING_STATUS_OPTIONS"
               :key="item.value"
@@ -843,18 +950,28 @@ const compareObservations = computed(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showAddObservation = false">取消</el-button>
-        <el-button type="primary" @click="submitObservation">确认添加</el-button>
+        <el-button @click="showAddObservation = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="submitObservation"
+        >
+          确认添加
+        </el-button>
       </template>
     </el-dialog>
 
     <el-dialog
+      v-if="selectedObservation"
       v-model="showObservationDetail"
       title="观察记录详情"
       width="600px"
-      v-if="selectedObservation"
     >
-      <el-descriptions :column="1" border>
+      <el-descriptions
+        :column="1"
+        border
+      >
         <el-descriptions-item label="观察日期">
           {{ selectedObservation.observationDate }}
         </el-descriptions-item>
@@ -885,19 +1002,32 @@ const compareObservations = computed(() => {
             {{ getProcessingLabel(selectedObservation.processingStatus) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="备注" v-if="selectedObservation.remarks">
-          <div style="white-space: pre-wrap">{{ selectedObservation.remarks }}</div>
+        <el-descriptions-item
+          v-if="selectedObservation.remarks"
+          label="备注"
+        >
+          <div style="white-space: pre-wrap">
+            {{ selectedObservation.remarks }}
+          </div>
         </el-descriptions-item>
         <el-descriptions-item label="记录时间">
           {{ formatDateTime(selectedObservation.createdAt) }}
         </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button type="danger" @click="deleteObservation(selectedObservation)">
+        <el-button
+          type="danger"
+          @click="deleteObservation(selectedObservation)"
+        >
           删除记录
         </el-button>
-        <el-button @click="showObservationDetail = false">关闭</el-button>
-        <el-button type="primary" @click="editObservationFromDetail">
+        <el-button @click="showObservationDetail = false">
+          关闭
+        </el-button>
+        <el-button
+          type="primary"
+          @click="editObservationFromDetail"
+        >
           编辑记录
         </el-button>
       </template>
@@ -916,7 +1046,10 @@ const compareObservations = computed(() => {
         :rules="observationFormRules"
         label-width="100px"
       >
-        <el-form-item label="观察日期" prop="observationDate">
+        <el-form-item
+          label="观察日期"
+          prop="observationDate"
+        >
           <el-date-picker
             v-model="editObservation.observationDate"
             type="date"
@@ -926,8 +1059,15 @@ const compareObservations = computed(() => {
             placeholder="请选择观察日期"
           />
         </el-form-item>
-        <el-form-item label="褪变等级" prop="fadingLevel">
-          <el-select v-model="editObservation.fadingLevel" style="width: 100%" placeholder="请选择褪变等级">
+        <el-form-item
+          label="褪变等级"
+          prop="fadingLevel"
+        >
+          <el-select
+            v-model="editObservation.fadingLevel"
+            style="width: 100%"
+            placeholder="请选择褪变等级"
+          >
             <el-option
               v-for="item in FADING_LEVEL_OPTIONS"
               :key="item.value"
@@ -936,7 +1076,10 @@ const compareObservations = computed(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="裂隙长度(cm)" prop="crackLength">
+        <el-form-item
+          label="裂隙长度(cm)"
+          prop="crackLength"
+        >
           <el-input-number
             v-model="editObservation.crackLength"
             :min="0"
@@ -946,8 +1089,15 @@ const compareObservations = computed(() => {
             controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="处理状态" prop="processingStatus">
-          <el-select v-model="editObservation.processingStatus" style="width: 100%" placeholder="请选择处理状态">
+        <el-form-item
+          label="处理状态"
+          prop="processingStatus"
+        >
+          <el-select
+            v-model="editObservation.processingStatus"
+            style="width: 100%"
+            placeholder="请选择处理状态"
+          >
             <el-option
               v-for="item in PROCESSING_STATUS_OPTIONS"
               :key="item.value"
@@ -966,8 +1116,15 @@ const compareObservations = computed(() => {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showEditObservation = false">取消</el-button>
-        <el-button type="primary" @click="submitEditObservation">保存修改</el-button>
+        <el-button @click="showEditObservation = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="submitEditObservation"
+        >
+          保存修改
+        </el-button>
       </template>
     </el-dialog>
   </div>

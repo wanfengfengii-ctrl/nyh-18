@@ -88,7 +88,7 @@ const allImagesLoaded = computed(() => imageLoaded.value.before && imageLoaded.v
           :src="afterImage.fileUrl"
           :alt="afterImage.description"
           @load="imageLoaded.after = true"
-        />
+        >
         <div class="image-label">
           <span class="label-date">{{ afterImage.photoDate }}</span>
           <span class="label-text">修复后</span>
@@ -128,7 +128,7 @@ const allImagesLoaded = computed(() => imageLoaded.value.before && imageLoaded.v
           :src="beforeImage.fileUrl"
           :alt="beforeImage.description"
           @load="imageLoaded.before = true"
-        />
+        >
         <div class="image-label">
           <span class="label-date">{{ beforeImage.photoDate }}</span>
           <span class="label-text">修复前</span>
@@ -176,7 +176,10 @@ const allImagesLoaded = computed(() => imageLoaded.value.before && imageLoaded.v
         v-if="!allImagesLoaded"
         class="loading-overlay"
       >
-        <el-icon class="loading-icon" :size="48">
+        <el-icon
+          class="loading-icon"
+          :size="48"
+        >
           <Loading />
         </el-icon>
       </div>
@@ -184,27 +187,45 @@ const allImagesLoaded = computed(() => imageLoaded.value.before && imageLoaded.v
 
     <div class="compare-legend">
       <div class="legend-item">
-        <div class="legend-color" style="background: #f56c6c"></div>
+        <div
+          class="legend-color"
+          style="background: #f56c6c"
+        />
         <span>裂隙</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #e6a23c"></div>
+        <div
+          class="legend-color"
+          style="background: #e6a23c"
+        />
         <span>褪变</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #f97316"></div>
+        <div
+          class="legend-color"
+          style="background: #f97316"
+        />
         <span>起甲</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #67c23a"></div>
+        <div
+          class="legend-color"
+          style="background: #67c23a"
+        />
         <span>霉斑</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #409eff"></div>
+        <div
+          class="legend-color"
+          style="background: #409eff"
+        />
         <span>盐析</span>
       </div>
       <div class="legend-item">
-        <div class="legend-color" style="background: #909399"></div>
+        <div
+          class="legend-color"
+          style="background: #909399"
+        />
         <span>破损</span>
       </div>
     </div>

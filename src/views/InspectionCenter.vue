@@ -2,7 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
+import { useInspectionStore } from '@/stores/inspection'
 import StatCard from '@/components/StatCard.vue'
 import { useECharts, createPieOption, createBarOption } from '@/composables/useECharts'
 import type {
@@ -21,7 +22,8 @@ import {
 } from '@/types'
 
 const router = useRouter()
-const store = useMuralStore()
+const areaStore = useAreaStore()
+const inspectionStore = useInspectionStore()
 
 const activeView = ref<'list' | 'kanban' | 'calendar'>('list')
 const activeTab = ref('tasks')
@@ -36,16 +38,16 @@ const showTaskDetailDialog = ref(false)
 const selectedTask = ref<InspectionTask | null>(null)
 const editingPlan = ref<InspectionPlan | null>(null)
 
-const stats = computed(() => store.inspectionStats)
-const tasks = computed(() => store.filteredInspectionTasks)
-const plans = computed(() => store.inspectionPlans)
-const inspectors = computed(() => store.inspectors)
-const areas = computed(() => store.areas)
+const stats = computed(() => inspectionStore.inspectionStats)
+const tasks = computed(() => inspectionStore.filteredInspectionTasks)
+const plans = computed(() => inspectionStore.inspectionPlans)
+const inspectors = computed(() => inspectionStore.inspectors)
+const areas = computed(() => areaStore.areas)
 
-const pendingTasks = computed(() => store.pendingInspectionTasks)
-const inProgressTasks = computed(() => store.inProgressInspectionTasks)
-const completedTasks = computed(() => store.completedInspectionTasks)
-const overdueTasks = computed(() => store.overdueInspectionTasks)
+const pendingTasks = computed(() => inspectionStore.pendingInspectionTasks)
+const inProgressTasks = computed(() => inspectionStore.inProgressInspectionTasks)
+const completedTasks = computed(() => inspectionStore.completedInspectionTasks)
+const overdueTasks = computed(() => inspectionStore.overdueInspectionTasks)
 
 const filterForm = ref({
   caveName: '',
@@ -99,7 +101,7 @@ const calendarDays = computed(() => {
       date,
       dateStr: date.toISOString().split('T')[0],
       isCurrentMonth: false,
-      tasks: store.getInspectionTasksByDate(date.toISOString().split('T')[0]),
+      tasks: inspectionStore.getInspectionTasksByDate(date.toISOString().split('T')[0]),
     })
   }
 
@@ -109,7 +111,7 @@ const calendarDays = computed(() => {
       date,
       dateStr: date.toISOString().split('T')[0],
       isCurrentMonth: true,
-      tasks: store.getInspectionTasksByDate(date.toISOString().split('T')[0]),
+      tasks: inspectionStore.getInspectionTasksByDate(date.toISOString().split('T')[0]),
     })
   }
 
@@ -120,7 +122,7 @@ const calendarDays = computed(() => {
       date,
       dateStr: date.toISOString().split('T')[0],
       isCurrentMonth: false,
-      tasks: store.getInspectionTasksByDate(date.toISOString().split('T')[0]),
+      tasks: inspectionStore.getInspectionTasksByDate(date.toISOString().split('T')[0]),
     })
   }
 
@@ -181,11 +183,11 @@ useECharts(caveChartRef, caveBarOption.value)
 useECharts(completionChartRef, completionBarOption.value)
 
 onMounted(() => {
-  store.resetInspectionFilterParams()
+  inspectionStore.resetInspectionFilterParams()
 })
 
 function applyFilter() {
-  store.setInspectionFilterParams({
+  inspectionStore.setInspectionFilterParams({
     caveName: filterForm.value.caveName,
     areaId: filterForm.value.areaId,
     assigneeId: filterForm.value.assigneeId,
@@ -206,7 +208,7 @@ function resetFilter() {
     dateRange: [],
     keyword: '',
   }
-  store.resetInspectionFilterParams()
+  inspectionStore.resetInspectionFilterParams()
 }
 
 function getTaskStatusColor(status: string): string {
@@ -283,14 +285,14 @@ function savePlan() {
   }
 
   if (editingPlan.value) {
-    store.updateInspectionPlan(editingPlan.value.id, {
+    inspectionStore.updateInspectionPlan(editingPlan.value.id, {
       ...planForm.value,
       isActive: editingPlan.value.isActive,
       createdBy: editingPlan.value.createdBy,
     })
     ElMessage.success('巡检计划已更新')
   } else {
-    store.addInspectionPlan({
+    inspectionStore.addInspectionPlan({
       ...planForm.value,
       isActive: true,
       createdBy: '当前用户',
@@ -308,14 +310,14 @@ function deletePlan(id: string) {
     type: 'warning',
   })
     .then(() => {
-      store.deleteInspectionPlan(id)
+      inspectionStore.deleteInspectionPlan(id)
       ElMessage.success('巡检计划已删除')
     })
     .catch(() => {})
 }
 
 function togglePlanStatus(plan: InspectionPlan) {
-  store.updateInspectionPlan(plan.id, { isActive: !plan.isActive })
+  inspectionStore.updateInspectionPlan(plan.id, { isActive: !plan.isActive })
   ElMessage.success(plan.isActive ? '计划已暂停' : '计划已激活')
 }
 
@@ -356,7 +358,7 @@ function saveTask() {
   const area = areas.value.find((a) => a.id === taskForm.value.areaId)
   const inspector = inspectors.value.find((i) => i.id === taskForm.value.assigneeId)
 
-  store.addInspectionTask({
+  inspectionStore.addInspectionTask({
     planId: '',
     taskName: taskForm.value.taskName,
     caveName: taskForm.value.caveName,
@@ -385,7 +387,7 @@ function openTaskDetail(task: InspectionTask) {
 }
 
 function startTask(task: InspectionTask) {
-  store.startInspectionTask(task.id)
+  inspectionStore.startInspectionTask(task.id)
   ElMessage.success('任务已开始')
 }
 
@@ -402,7 +404,7 @@ function submitTaskCompletion() {
     return
   }
 
-  store.completeInspectionTask(
+  inspectionStore.completeInspectionTask(
     selectedTask.value.id,
     taskForm.value.findings,
     taskForm.value.hasAbnormality,
@@ -421,7 +423,7 @@ function deleteTask(id: string) {
     type: 'warning',
   })
     .then(() => {
-      store.deleteInspectionTask(id)
+      inspectionStore.deleteInspectionTask(id)
       ElMessage.success('巡检任务已删除')
     })
     .catch(() => {})
@@ -453,13 +455,18 @@ function getAreaCode(areaId: string): string {
     <div class="page-header">
       <div class="header-content">
         <div>
-          <h1 class="page-title">多洞窟联合巡检排期与任务协同中心</h1>
+          <h1 class="page-title">
+            多洞窟联合巡检排期与任务协同中心
+          </h1>
           <p class="page-subtitle">
             支持按洞窟/区域生成巡检计划、分配文保人员、设置巡检周期、记录执行过程与结果
           </p>
         </div>
         <div class="header-actions">
-          <el-button type="primary" @click="openPlanDialog">
+          <el-button
+            type="primary"
+            @click="openPlanDialog"
+          >
             <el-icon><Calendar /></el-icon>
             创建巡检计划
           </el-button>
@@ -522,27 +529,42 @@ function getAreaCode(areaId: string): string {
       />
     </div>
 
-    <el-row :gutter="16" class="chart-row">
+    <el-row
+      :gutter="16"
+      class="chart-row"
+    >
       <el-col :span="8">
         <div class="chart-card">
-          <div ref="workloadChartRef" class="chart-container"></div>
+          <div
+            ref="workloadChartRef"
+            class="chart-container"
+          />
         </div>
       </el-col>
       <el-col :span="8">
         <div class="chart-card">
-          <div ref="caveChartRef" class="chart-container"></div>
+          <div
+            ref="caveChartRef"
+            class="chart-container"
+          />
         </div>
       </el-col>
       <el-col :span="8">
         <div class="chart-card">
-          <div ref="completionChartRef" class="chart-container"></div>
+          <div
+            ref="completionChartRef"
+            class="chart-container"
+          />
         </div>
       </el-col>
     </el-row>
 
     <div class="view-switch-card">
       <div class="view-switch">
-        <el-radio-group v-model="activeView" size="large">
+        <el-radio-group
+          v-model="activeView"
+          size="large"
+        >
           <el-radio-button value="list">
             <el-icon><List /></el-icon>
             列表视图
@@ -559,7 +581,11 @@ function getAreaCode(areaId: string): string {
       </div>
 
       <div class="filter-section">
-        <el-form :inline="true" :model="filterForm" class="filter-form">
+        <el-form
+          :inline="true"
+          :model="filterForm"
+          class="filter-form"
+        >
           <el-form-item label="洞窟">
             <el-select
               v-model="filterForm.caveName"
@@ -645,11 +671,20 @@ function getAreaCode(areaId: string): string {
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" size="small" @click="applyFilter">
+            <el-button
+              type="primary"
+              size="small"
+              @click="applyFilter"
+            >
               <el-icon><Search /></el-icon>
               筛选
             </el-button>
-            <el-button size="small" @click="resetFilter">重置</el-button>
+            <el-button
+              size="small"
+              @click="resetFilter"
+            >
+              重置
+            </el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -658,7 +693,10 @@ function getAreaCode(areaId: string): string {
     <div class="content-card">
       <template v-if="activeView === 'list'">
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="全部任务" name="tasks">
+          <el-tab-pane
+            label="全部任务"
+            name="tasks"
+          >
             <div class="task-list">
               <div
                 v-for="task in tasks"
@@ -683,7 +721,12 @@ function getAreaCode(areaId: string): string {
                     >
                       {{ getTaskStatusLabel(task.status) }}
                     </el-tag>
-                    <el-tag v-if="task.hasAbnormality" type="danger" size="small" effect="light">
+                    <el-tag
+                      v-if="task.hasAbnormality"
+                      type="danger"
+                      size="small"
+                      effect="light"
+                    >
                       发现异常
                     </el-tag>
                   </div>
@@ -704,7 +747,11 @@ function getAreaCode(areaId: string): string {
                     >
                       完成任务
                     </el-button>
-                    <el-button size="small" type="danger" @click.stop="deleteTask(task.id)">
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click.stop="deleteTask(task.id)"
+                    >
                       删除
                     </el-button>
                   </div>
@@ -728,16 +775,25 @@ function getAreaCode(areaId: string): string {
                       截止: {{ task.dueDate }}
                     </span>
                   </div>
-                  <div v-if="task.findings" class="task-findings">
+                  <div
+                    v-if="task.findings"
+                    class="task-findings"
+                  >
                     <strong>巡检结果:</strong> {{ task.findings }}
                   </div>
                 </div>
               </div>
-              <el-empty v-if="tasks.length === 0" description="暂无巡检任务" />
+              <el-empty
+                v-if="tasks.length === 0"
+                description="暂无巡检任务"
+              />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="巡检计划" name="plans">
+          <el-tab-pane
+            label="巡检计划"
+            name="plans"
+          >
             <div class="plan-list">
               <div
                 v-for="plan in plans"
@@ -764,11 +820,25 @@ function getAreaCode(areaId: string): string {
                     </el-tag>
                   </div>
                   <div class="plan-actions">
-                    <el-button size="small" @click="togglePlanStatus(plan)">
+                    <el-button
+                      size="small"
+                      @click="togglePlanStatus(plan)"
+                    >
                       {{ plan.isActive ? '暂停' : '激活' }}
                     </el-button>
-                    <el-button size="small" @click="openPlanDialog(plan)">编辑</el-button>
-                    <el-button size="small" type="danger" @click="deletePlan(plan.id)">删除</el-button>
+                    <el-button
+                      size="small"
+                      @click="openPlanDialog(plan)"
+                    >
+                      编辑
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click="deletePlan(plan.id)"
+                    >
+                      删除
+                    </el-button>
                   </div>
                 </div>
                 <div class="plan-body">
@@ -789,27 +859,44 @@ function getAreaCode(areaId: string): string {
                       <el-icon><Calendar /></el-icon>
                       开始: {{ plan.startDate }}
                     </span>
-                    <span v-if="plan.endDate" class="meta-item">
+                    <span
+                      v-if="plan.endDate"
+                      class="meta-item"
+                    >
                       <el-icon><Clock /></el-icon>
                       结束: {{ plan.endDate }}
                     </span>
                   </div>
                   <div class="plan-areas">
                     <strong>巡检区域:</strong>
-                    <el-tag v-for="areaId in plan.areaIds" :key="areaId" size="small" effect="light">
+                    <el-tag
+                      v-for="areaId in plan.areaIds"
+                      :key="areaId"
+                      size="small"
+                      effect="light"
+                    >
                       {{ getAreaCode(areaId) }}
                     </el-tag>
                   </div>
-                  <div v-if="plan.description" class="plan-description">
+                  <div
+                    v-if="plan.description"
+                    class="plan-description"
+                  >
                     {{ plan.description }}
                   </div>
                 </div>
               </div>
-              <el-empty v-if="plans.length === 0" description="暂无巡检计划，点击右上角「创建巡检计划」开始" />
+              <el-empty
+                v-if="plans.length === 0"
+                description="暂无巡检计划，点击右上角「创建巡检计划」开始"
+              />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="人员工作量" name="workload">
+          <el-tab-pane
+            label="人员工作量"
+            name="workload"
+          >
             <div class="workload-grid">
               <div
                 v-for="inspector in stats.inspectors"
@@ -818,25 +905,43 @@ function getAreaCode(areaId: string): string {
               >
                 <div class="workload-header">
                   <div class="avatar">
-                    <el-icon :size="32"><User /></el-icon>
+                    <el-icon :size="32">
+                      <User />
+                    </el-icon>
                   </div>
                   <div class="info">
-                    <div class="name">{{ inspector.name }}</div>
-                    <div class="dept">{{ inspector.department }}</div>
+                    <div class="name">
+                      {{ inspector.name }}
+                    </div>
+                    <div class="dept">
+                      {{ inspector.department }}
+                    </div>
                   </div>
                 </div>
                 <div class="workload-stats">
                   <div class="stat-item">
-                    <div class="stat-value">{{ inspector.taskCount }}</div>
-                    <div class="stat-label">总任务数</div>
+                    <div class="stat-value">
+                      {{ inspector.taskCount }}
+                    </div>
+                    <div class="stat-label">
+                      总任务数
+                    </div>
                   </div>
                   <div class="stat-item">
-                    <div class="stat-value">{{ inspector.completedCount }}</div>
-                    <div class="stat-label">已完成</div>
+                    <div class="stat-value">
+                      {{ inspector.completedCount }}
+                    </div>
+                    <div class="stat-label">
+                      已完成
+                    </div>
                   </div>
                   <div class="stat-item">
-                    <div class="stat-value">{{ inspector.workload }}%</div>
-                    <div class="stat-label">工作负荷</div>
+                    <div class="stat-value">
+                      {{ inspector.workload }}%
+                    </div>
+                    <div class="stat-label">
+                      工作负荷
+                    </div>
                   </div>
                 </div>
                 <div class="workload-progress">
@@ -846,7 +951,12 @@ function getAreaCode(areaId: string): string {
                   />
                 </div>
                 <div class="specialties">
-                  <el-tag v-for="s in inspector.specialty" :key="s" size="small" effect="light">
+                  <el-tag
+                    v-for="s in inspector.specialty"
+                    :key="s"
+                    size="small"
+                    effect="light"
+                  >
                     {{ s }}
                   </el-tag>
                 </div>
@@ -861,7 +971,10 @@ function getAreaCode(areaId: string): string {
           <div class="kanban-column">
             <div class="column-header pending">
               <span class="column-title">待执行</span>
-              <el-badge :value="pendingTasks.length" class="item" />
+              <el-badge
+                :value="pendingTasks.length"
+                class="item"
+              />
             </div>
             <div class="column-content">
               <div
@@ -870,7 +983,9 @@ function getAreaCode(areaId: string): string {
                 class="kanban-card"
                 @click="openTaskDetail(task)"
               >
-                <div class="card-title">{{ task.taskName }}</div>
+                <div class="card-title">
+                  {{ task.taskName }}
+                </div>
                 <div class="card-meta">
                   <span>{{ task.areaCode }}</span>
                   <span>{{ task.assigneeName }}</span>
@@ -892,7 +1007,10 @@ function getAreaCode(areaId: string): string {
           <div class="kanban-column">
             <div class="column-header in-progress">
               <span class="column-title">进行中</span>
-              <el-badge :value="inProgressTasks.length" class="item" />
+              <el-badge
+                :value="inProgressTasks.length"
+                class="item"
+              />
             </div>
             <div class="column-content">
               <div
@@ -901,7 +1019,9 @@ function getAreaCode(areaId: string): string {
                 class="kanban-card"
                 @click="openTaskDetail(task)"
               >
-                <div class="card-title">{{ task.taskName }}</div>
+                <div class="card-title">
+                  {{ task.taskName }}
+                </div>
                 <div class="card-meta">
                   <span>{{ task.areaCode }}</span>
                   <span>{{ task.assigneeName }}</span>
@@ -923,7 +1043,10 @@ function getAreaCode(areaId: string): string {
           <div class="kanban-column">
             <div class="column-header completed">
               <span class="column-title">已完成</span>
-              <el-badge :value="completedTasks.length" class="item" />
+              <el-badge
+                :value="completedTasks.length"
+                class="item"
+              />
             </div>
             <div class="column-content">
               <div
@@ -932,7 +1055,9 @@ function getAreaCode(areaId: string): string {
                 class="kanban-card completed"
                 @click="openTaskDetail(task)"
               >
-                <div class="card-title">{{ task.taskName }}</div>
+                <div class="card-title">
+                  {{ task.taskName }}
+                </div>
                 <div class="card-meta">
                   <span>{{ task.areaCode }}</span>
                   <span>{{ task.assigneeName }}</span>
@@ -955,7 +1080,11 @@ function getAreaCode(areaId: string): string {
           <div class="kanban-column">
             <div class="column-header overdue">
               <span class="column-title">已逾期</span>
-              <el-badge :value="overdueTasks.length" type="danger" class="item" />
+              <el-badge
+                :value="overdueTasks.length"
+                type="danger"
+                class="item"
+              />
             </div>
             <div class="column-content">
               <div
@@ -964,7 +1093,9 @@ function getAreaCode(areaId: string): string {
                 class="kanban-card overdue"
                 @click="openTaskDetail(task)"
               >
-                <div class="card-title">{{ task.taskName }}</div>
+                <div class="card-title">
+                  {{ task.taskName }}
+                </div>
                 <div class="card-meta">
                   <span>{{ task.areaCode }}</span>
                   <span>{{ task.assigneeName }}</span>
@@ -992,7 +1123,9 @@ function getAreaCode(areaId: string): string {
               <el-button @click="goToPrevMonth">
                 <el-icon><ArrowLeft /></el-icon>
               </el-button>
-              <el-button @click="goToToday">今天</el-button>
+              <el-button @click="goToToday">
+                今天
+              </el-button>
               <el-button @click="goToNextMonth">
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
@@ -1003,7 +1136,11 @@ function getAreaCode(areaId: string): string {
           </div>
 
           <div class="calendar-weekdays">
-            <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="weekday">
+            <div
+              v-for="day in ['日', '一', '二', '三', '四', '五', '六']"
+              :key="day"
+              class="weekday"
+            >
               {{ day }}
             </div>
           </div>
@@ -1018,7 +1155,9 @@ function getAreaCode(areaId: string): string {
                 'today': day.dateStr === new Date().toISOString().split('T')[0],
               }"
             >
-              <div class="day-number">{{ day.date.getDate() }}</div>
+              <div class="day-number">
+                {{ day.date.getDate() }}
+              </div>
               <div class="day-tasks">
                 <div
                   v-for="task in day.tasks.slice(0, 3)"
@@ -1027,10 +1166,16 @@ function getAreaCode(areaId: string): string {
                   :class="task.status"
                   @click.stop="openTaskDetail(task)"
                 >
-                  <span class="task-dot" :style="{ backgroundColor: getTaskStatusColor(task.status) }"></span>
+                  <span
+                    class="task-dot"
+                    :style="{ backgroundColor: getTaskStatusColor(task.status) }"
+                  />
                   <span class="task-text">{{ task.taskName }}</span>
                 </div>
-                <div v-if="day.tasks.length > 3" class="more-tasks">
+                <div
+                  v-if="day.tasks.length > 3"
+                  class="more-tasks"
+                >
                   +{{ day.tasks.length - 3 }} 更多
                 </div>
               </div>
@@ -1046,13 +1191,25 @@ function getAreaCode(areaId: string): string {
       width="700px"
       :close-on-click-modal="false"
     >
-      <el-form :model="planForm" label-width="100px">
-        <el-form-item label="计划名称" required>
-          <el-input v-model="planForm.planName" placeholder="请输入计划名称" />
+      <el-form
+        :model="planForm"
+        label-width="100px"
+      >
+        <el-form-item
+          label="计划名称"
+          required
+        >
+          <el-input
+            v-model="planForm.planName"
+            placeholder="请输入计划名称"
+          />
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="选择洞窟" required>
+            <el-form-item
+              label="选择洞窟"
+              required
+            >
               <el-select
                 v-model="planForm.caveName"
                 placeholder="请选择洞窟"
@@ -1069,8 +1226,14 @@ function getAreaCode(areaId: string): string {
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="巡检周期" required>
-              <el-select v-model="planForm.cycleType" style="width: 100%">
+            <el-form-item
+              label="巡检周期"
+              required
+            >
+              <el-select
+                v-model="planForm.cycleType"
+                style="width: 100%"
+              >
                 <el-option
                   v-for="opt in cycleOptions"
                   :key="opt.value"
@@ -1081,7 +1244,10 @@ function getAreaCode(areaId: string): string {
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item v-if="planForm.cycleType === 'custom'" label="自定义天数">
+        <el-form-item
+          v-if="planForm.cycleType === 'custom'"
+          label="自定义天数"
+        >
           <el-input-number
             v-model="planForm.customDays"
             :min="1"
@@ -1089,7 +1255,10 @@ function getAreaCode(areaId: string): string {
             style="width: 200px"
           />
         </el-form-item>
-        <el-form-item label="巡检区域" required>
+        <el-form-item
+          label="巡检区域"
+          required
+        >
           <el-select
             v-model="planForm.areaIds"
             multiple
@@ -1105,7 +1274,10 @@ function getAreaCode(areaId: string): string {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="分配人员" required>
+        <el-form-item
+          label="分配人员"
+          required
+        >
           <el-select
             v-model="planForm.assigneeIds"
             multiple
@@ -1122,7 +1294,10 @@ function getAreaCode(areaId: string): string {
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="开始日期" required>
+            <el-form-item
+              label="开始日期"
+              required
+            >
               <el-date-picker
                 v-model="planForm.startDate"
                 type="date"
@@ -1147,7 +1322,10 @@ function getAreaCode(areaId: string): string {
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="优先级">
-              <el-select v-model="planForm.priority" style="width: 100%">
+              <el-select
+                v-model="planForm.priority"
+                style="width: 100%"
+              >
                 <el-option
                   v-for="opt in priorityOptions"
                   :key="opt.value"
@@ -1179,8 +1357,13 @@ function getAreaCode(areaId: string): string {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showPlanDialog = false">取消</el-button>
-        <el-button type="primary" @click="savePlan">
+        <el-button @click="showPlanDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="savePlan"
+        >
           {{ editingPlan ? '保存修改' : '创建计划' }}
         </el-button>
       </template>
@@ -1192,13 +1375,25 @@ function getAreaCode(areaId: string): string {
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form :model="taskForm" label-width="100px">
-        <el-form-item label="任务名称" required>
-          <el-input v-model="taskForm.taskName" placeholder="请输入任务名称" />
+      <el-form
+        :model="taskForm"
+        label-width="100px"
+      >
+        <el-form-item
+          label="任务名称"
+          required
+        >
+          <el-input
+            v-model="taskForm.taskName"
+            placeholder="请输入任务名称"
+          />
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="选择洞窟" required>
+            <el-form-item
+              label="选择洞窟"
+              required
+            >
               <el-select
                 v-model="taskForm.caveName"
                 placeholder="请选择洞窟"
@@ -1215,7 +1410,10 @@ function getAreaCode(areaId: string): string {
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="选择区域" required>
+            <el-form-item
+              label="选择区域"
+              required
+            >
               <el-select
                 v-model="taskForm.areaId"
                 placeholder="请选择区域"
@@ -1232,7 +1430,10 @@ function getAreaCode(areaId: string): string {
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="执行人" required>
+        <el-form-item
+          label="执行人"
+          required
+        >
           <el-select
             v-model="taskForm.assigneeId"
             placeholder="请选择执行人"
@@ -1248,7 +1449,10 @@ function getAreaCode(areaId: string): string {
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="计划日期" required>
+            <el-form-item
+              label="计划日期"
+              required
+            >
               <el-date-picker
                 v-model="taskForm.scheduledDate"
                 type="date"
@@ -1271,7 +1475,10 @@ function getAreaCode(areaId: string): string {
           </el-col>
         </el-row>
         <el-form-item label="优先级">
-          <el-select v-model="taskForm.priority" style="width: 100%">
+          <el-select
+            v-model="taskForm.priority"
+            style="width: 100%"
+          >
             <el-option
               v-for="opt in priorityOptions"
               :key="opt.value"
@@ -1282,8 +1489,15 @@ function getAreaCode(areaId: string): string {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showTaskDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveTask">创建任务</el-button>
+        <el-button @click="showTaskDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="saveTask"
+        >
+          创建任务
+        </el-button>
       </template>
     </el-dialog>
 
@@ -1293,7 +1507,10 @@ function getAreaCode(areaId: string): string {
       width="700px"
       :close-on-click-modal="false"
     >
-      <div v-if="selectedTask" class="task-detail">
+      <div
+        v-if="selectedTask"
+        class="task-detail"
+      >
         <div class="detail-header">
           <h3>{{ selectedTask.taskName }}</h3>
           <div class="detail-tags">
@@ -1309,28 +1526,56 @@ function getAreaCode(areaId: string): string {
             >
               {{ getPriorityLabel(selectedTask.priority) }}
             </el-tag>
-            <el-tag v-if="selectedTask.hasAbnormality" type="danger" effect="light">
+            <el-tag
+              v-if="selectedTask.hasAbnormality"
+              type="danger"
+              effect="light"
+            >
               发现异常
             </el-tag>
           </div>
         </div>
 
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="洞窟">{{ selectedTask.caveName }}</el-descriptions-item>
-          <el-descriptions-item label="区域">{{ selectedTask.areaCode }}</el-descriptions-item>
-          <el-descriptions-item label="执行人">{{ selectedTask.assigneeName }}</el-descriptions-item>
-          <el-descriptions-item label="创建人">{{ selectedTask.createdBy }}</el-descriptions-item>
-          <el-descriptions-item label="计划日期">{{ selectedTask.scheduledDate }}</el-descriptions-item>
-          <el-descriptions-item label="截止日期">{{ selectedTask.dueDate }}</el-descriptions-item>
-          <el-descriptions-item v-if="selectedTask.startedAt" label="开始时间">
+        <el-descriptions
+          :column="2"
+          border
+        >
+          <el-descriptions-item label="洞窟">
+            {{ selectedTask.caveName }}
+          </el-descriptions-item>
+          <el-descriptions-item label="区域">
+            {{ selectedTask.areaCode }}
+          </el-descriptions-item>
+          <el-descriptions-item label="执行人">
+            {{ selectedTask.assigneeName }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建人">
+            {{ selectedTask.createdBy }}
+          </el-descriptions-item>
+          <el-descriptions-item label="计划日期">
+            {{ selectedTask.scheduledDate }}
+          </el-descriptions-item>
+          <el-descriptions-item label="截止日期">
+            {{ selectedTask.dueDate }}
+          </el-descriptions-item>
+          <el-descriptions-item
+            v-if="selectedTask.startedAt"
+            label="开始时间"
+          >
             {{ selectedTask.startedAt }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="selectedTask.completedAt" label="完成时间">
+          <el-descriptions-item
+            v-if="selectedTask.completedAt"
+            label="完成时间"
+          >
             {{ selectedTask.completedAt }}
           </el-descriptions-item>
         </el-descriptions>
 
-        <div v-if="selectedTask.checkItems.length > 0" class="checklist-section">
+        <div
+          v-if="selectedTask.checkItems.length > 0"
+          class="checklist-section"
+        >
           <h4>检查清单</h4>
           <div class="checklist">
             <div
@@ -1338,17 +1583,35 @@ function getAreaCode(areaId: string): string {
               :key="item.id"
               class="check-item"
             >
-              <el-checkbox :model-value="item.isChecked" disabled />
+              <el-checkbox
+                :model-value="item.isChecked"
+                disabled
+              />
               <span :class="{ checked: item.isChecked }">{{ item.name }}</span>
-              <el-tag v-if="item.isRequired" type="warning" size="small">必填</el-tag>
+              <el-tag
+                v-if="item.isRequired"
+                type="warning"
+                size="small"
+              >
+                必填
+              </el-tag>
             </div>
           </div>
         </div>
 
-        <div v-if="selectedTask.status === 'inProgress'" class="complete-section">
+        <div
+          v-if="selectedTask.status === 'inProgress'"
+          class="complete-section"
+        >
           <h4>完成任务</h4>
-          <el-form :model="taskForm" label-width="100px">
-            <el-form-item label="巡检结果" required>
+          <el-form
+            :model="taskForm"
+            label-width="100px"
+          >
+            <el-form-item
+              label="巡检结果"
+              required
+            >
               <el-input
                 v-model="taskForm.findings"
                 type="textarea"
@@ -1359,7 +1622,11 @@ function getAreaCode(areaId: string): string {
             <el-form-item label="是否异常">
               <el-switch v-model="taskForm.hasAbnormality" />
             </el-form-item>
-            <el-form-item v-if="taskForm.hasAbnormality" label="异常描述" required>
+            <el-form-item
+              v-if="taskForm.hasAbnormality"
+              label="异常描述"
+              required
+            >
               <el-input
                 v-model="taskForm.abnormalityDescription"
                 type="textarea"
@@ -1370,17 +1637,27 @@ function getAreaCode(areaId: string): string {
           </el-form>
         </div>
 
-        <div v-if="selectedTask.findings" class="findings-section">
+        <div
+          v-if="selectedTask.findings"
+          class="findings-section"
+        >
           <h4>巡检结果</h4>
           <p>{{ selectedTask.findings }}</p>
-          <div v-if="selectedTask.abnormalityDescription" class="abnormality">
-            <el-icon color="#f56c6c"><WarningFilled /></el-icon>
+          <div
+            v-if="selectedTask.abnormalityDescription"
+            class="abnormality"
+          >
+            <el-icon color="#f56c6c">
+              <WarningFilled />
+            </el-icon>
             <span>异常说明: {{ selectedTask.abnormalityDescription }}</span>
           </div>
         </div>
       </div>
       <template #footer>
-        <el-button @click="showTaskDetailDialog = false; selectedTask = null">关闭</el-button>
+        <el-button @click="showTaskDetailDialog = false; selectedTask = null">
+          关闭
+        </el-button>
         <el-button
           v-if="selectedTask?.status === 'inProgress'"
           type="primary"

@@ -2,7 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
+import { useObservationStore } from '@/stores/observation'
+import { useAlertStore } from '@/stores/alert'
 import {
   DYNASTY_OPTIONS,
   CAVE_OPTIONS,
@@ -13,7 +15,9 @@ import type { MuralArea, RiskLevel, ProcessingStatus } from '@/types'
 import { getRiskLabel, getRiskColor, getProcessingLabel } from '@/utils'
 
 const router = useRouter()
-const store = useMuralStore()
+const areaStore = useAreaStore()
+const observationStore = useObservationStore()
+const alertStore = useAlertStore()
 
 const searchForm = ref({
   caveName: '',
@@ -29,12 +33,12 @@ const loading = ref(false)
 const showFilters = ref(true)
 
 onMounted(() => {
-  store.refreshOverdueStatus()
+  areaStore.refreshOverdueStatus()
 })
 
 function handleSearch() {
   loading.value = true
-  store.setFilterParams({
+  areaStore.setFilterParams({
     caveName: searchForm.value.caveName,
     dynasty: searchForm.value.dynasty,
     riskLevel: searchForm.value.riskLevel,
@@ -58,7 +62,7 @@ function handleReset() {
     dateRange: [],
     isOverdue: null,
   }
-  store.resetFilterParams()
+  areaStore.resetFilterParams()
 }
 
 function goToDetail(id: string) {
@@ -81,13 +85,16 @@ async function handleDelete(area: MuralArea) {
         confirmButtonClass: 'el-button--danger',
       }
     )
-    const success = store.deleteArea(area.id)
-    if (success) {
+    const areaSuccess = areaStore.deleteArea(area.id)
+    if (areaSuccess) {
+      observationStore.observations = observationStore.observations.filter((o) => o.areaId !== area.id)
+      alertStore.deleteAlertsByAreaId(area.id)
       ElMessage.success('删除成功')
     } else {
       ElMessage.error('删除失败')
     }
   } catch {
+    // 用户取消操作
   }
 }
 
@@ -110,20 +117,22 @@ function statusTagType(status: ProcessingStatus): 'info' | 'warning' | 'success'
 }
 
 const stats = computed(() => ({
-  total: store.areas.length,
-  highRisk: store.highRiskAreas.length,
-  overdue: store.overdueAreas.length,
-  pending: store.pendingAreas.length,
+  total: areaStore.areas.length,
+  highRisk: areaStore.highRiskAreas.length,
+  overdue: areaStore.overdueAreas.length,
+  pending: areaStore.pendingAreas.length,
 }))
 
-const displayAreas = computed(() => store.filteredAreas)
+const displayAreas = computed(() => areaStore.filteredAreas)
 </script>
 
 <template>
   <div class="area-list">
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">壁画区域档案</h1>
+        <h1 class="page-title">
+          壁画区域档案
+        </h1>
         <p class="page-subtitle">
           共 {{ displayAreas.length }} 个区域 |
           <span class="stat-highlight">高风险 {{ stats.highRisk }}</span> |
@@ -132,7 +141,10 @@ const displayAreas = computed(() => store.filteredAreas)
         </p>
       </div>
       <div class="header-right">
-        <el-button type="primary" @click="goToCreate">
+        <el-button
+          type="primary"
+          @click="goToCreate"
+        >
           <el-icon><Plus /></el-icon>
           新增区域
         </el-button>
@@ -140,17 +152,30 @@ const displayAreas = computed(() => store.filteredAreas)
     </div>
 
     <div class="filter-card">
-      <div class="filter-header" @click="showFilters = !showFilters">
+      <div
+        class="filter-header"
+        @click="showFilters = !showFilters"
+      >
         <span class="filter-title">
           <el-icon><Filter /></el-icon>
           筛选条件
         </span>
-        <el-icon class="toggle-icon" :class="{ expanded: showFilters }">
+        <el-icon
+          class="toggle-icon"
+          :class="{ expanded: showFilters }"
+        >
           <ArrowDown />
         </el-icon>
       </div>
-      <div v-show="showFilters" class="filter-content">
-        <el-form :model="searchForm" inline @submit.prevent>
+      <div
+        v-show="showFilters"
+        class="filter-content"
+      >
+        <el-form
+          :model="searchForm"
+          inline
+          @submit.prevent
+        >
           <el-form-item label="洞窟名称">
             <el-select
               v-model="searchForm.caveName"
@@ -218,8 +243,14 @@ const displayAreas = computed(() => store.filteredAreas)
               clearable
               style="width: 120px"
             >
-              <el-option label="已超期" :value="true" />
-              <el-option label="未超期" :value="false" />
+              <el-option
+                label="已超期"
+                :value="true"
+              />
+              <el-option
+                label="未超期"
+                :value="false"
+              />
             </el-select>
           </el-form-item>
           <el-form-item label="观察时间">
@@ -244,7 +275,10 @@ const displayAreas = computed(() => store.filteredAreas)
             />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handleSearch">
+            <el-button
+              type="primary"
+              @click="handleSearch"
+            >
               <el-icon><Search /></el-icon>
               筛选
             </el-button>
@@ -340,18 +374,34 @@ const displayAreas = computed(() => store.filteredAreas)
             >
               {{ getProcessingLabel(area.currentProcessingStatus) }}
             </el-tag>
-            <div class="card-actions" @click.stop>
-              <el-button type="primary" link size="small" @click="goToDetail(area.id)">
+            <div
+              class="card-actions"
+              @click.stop
+            >
+              <el-button
+                type="primary"
+                link
+                size="small"
+                @click="goToDetail(area.id)"
+              >
                 查看详情
               </el-button>
-              <el-button type="danger" link size="small" @click="handleDelete(area)">
+              <el-button
+                type="danger"
+                link
+                size="small"
+                @click="handleDelete(area)"
+              >
                 删除
               </el-button>
             </div>
           </div>
         </div>
 
-        <el-empty v-if="displayAreas.length === 0" description="暂无符合条件的区域" />
+        <el-empty
+          v-if="displayAreas.length === 0"
+          description="暂无符合条件的区域"
+        />
       </div>
     </div>
   </div>

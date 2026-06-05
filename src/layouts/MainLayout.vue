@@ -42,10 +42,23 @@ function goHome() {
 
 <template>
   <el-container class="main-layout">
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
-      <div class="logo" @click="goHome">
-        <img src="/favicon.svg" alt="Logo" class="logo-icon" />
-        <span v-if="!isCollapse" class="logo-text">壁画保护系统</span>
+    <el-aside
+      :width="isCollapse ? '64px' : '220px'"
+      class="sidebar"
+    >
+      <div
+        class="logo"
+        @click="goHome"
+      >
+        <img
+          src="/favicon.svg"
+          alt="Logo"
+          class="logo-icon"
+        >
+        <span
+          v-if="!isCollapse"
+          class="logo-text"
+        >壁画保护系统</span>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -62,7 +75,9 @@ function goHome() {
           :index="item.path"
         >
           <el-icon><component :is="item.meta?.icon" /></el-icon>
-          <template #title>{{ item.meta?.title }}</template>
+          <template #title>
+            {{ item.meta?.title }}
+          </template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -70,12 +85,17 @@ function goHome() {
     <el-container class="main-container">
       <el-header class="header">
         <div class="header-left">
-          <el-icon class="toggle-btn" @click="toggleSidebar">
+          <el-icon
+            class="toggle-btn"
+            @click="toggleSidebar"
+          >
             <Fold v-if="!isCollapse" />
             <Expand v-else />
           </el-icon>
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/dashboard' }">
+              首页
+            </el-breadcrumb-item>
             <el-breadcrumb-item>{{ route.meta?.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -85,15 +105,25 @@ function goHome() {
             @command="handleLogout"
           >
             <span class="user-info">
-              <el-avatar :size="32" class="user-avatar">
+              <el-avatar
+                :size="32"
+                class="user-avatar"
+              >
                 <el-icon><User /></el-icon>
               </el-avatar>
               <span class="user-name">{{ userName }}</span>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item command="profile">
+                  个人中心
+                </el-dropdown-item>
+                <el-dropdown-item
+                  command="logout"
+                  divided
+                >
+                  退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -102,7 +132,10 @@ function goHome() {
 
       <el-main class="main-content">
         <RouterView v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
+          <transition
+            name="fade"
+            mode="out-in"
+          >
             <component :is="Component" />
           </transition>
         </RouterView>

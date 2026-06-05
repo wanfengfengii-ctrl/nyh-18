@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
 import {
   DYNASTY_OPTIONS,
   CAVE_OPTIONS,
@@ -12,7 +12,7 @@ import type { MuralArea } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
-const store = useMuralStore()
+const areaStore = useAreaStore()
 
 const areaId = computed(() => route.params.id as string)
 const isEdit = computed(() => areaId.value && areaId.value !== 'new')
@@ -48,7 +48,7 @@ const rules = {
 
 onMounted(() => {
   if (isEdit.value) {
-    const area = store.getAreaById(areaId.value)
+    const area = areaStore.getAreaById(areaId.value)
     if (area) {
       form.value = {
         areaCode: area.areaCode,
@@ -67,7 +67,7 @@ function handleSubmit() {
   formRef.value.validate((valid: boolean) => {
     if (valid) {
       if (isEdit.value) {
-        const success = store.updateArea(areaId.value, form.value)
+        const success = areaStore.updateArea(areaId.value, form.value)
         if (success) {
           ElMessage.success('区域档案更新成功')
           router.push(`/areas/${areaId.value}`)
@@ -75,7 +75,7 @@ function handleSubmit() {
           ElMessage.error('更新失败')
         }
       } else {
-        const newArea = store.addArea(form.value)
+        const newArea = areaStore.addArea(form.value)
         if (newArea) {
           ElMessage.success('区域档案创建成功')
           router.push('/areas')
@@ -100,12 +100,23 @@ function handleCancel() {
   <div class="area-form">
     <div class="page-header">
       <div class="header-left">
-        <el-button @click="handleCancel" :icon="ArrowLeft" circle />
-        <h1 class="page-title">{{ isEdit ? '编辑区域档案' : '新增区域档案' }}</h1>
+        <el-button
+          :icon="ArrowLeft"
+          circle
+          @click="handleCancel"
+        />
+        <h1 class="page-title">
+          {{ isEdit ? '编辑区域档案' : '新增区域档案' }}
+        </h1>
       </div>
       <div class="header-right">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">
+        <el-button @click="handleCancel">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmit"
+        >
           {{ isEdit ? '保存修改' : '创建区域' }}
         </el-button>
       </div>
@@ -121,13 +132,26 @@ function handleCancel() {
       >
         <el-row :gutter="24">
           <el-col :span="12">
-            <el-form-item label="区域编号" prop="areaCode">
-              <el-input v-model="form.areaCode" placeholder="例如：MOG-001" />
+            <el-form-item
+              label="区域编号"
+              prop="areaCode"
+            >
+              <el-input
+                v-model="form.areaCode"
+                placeholder="例如：MOG-001"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="洞窟名称" prop="caveName">
-              <el-select v-model="form.caveName" placeholder="请选择洞窟" style="width: 100%">
+            <el-form-item
+              label="洞窟名称"
+              prop="caveName"
+            >
+              <el-select
+                v-model="form.caveName"
+                placeholder="请选择洞窟"
+                style="width: 100%"
+              >
                 <el-option
                   v-for="cave in CAVE_OPTIONS"
                   :key="cave"
@@ -141,13 +165,26 @@ function handleCancel() {
 
         <el-row :gutter="24">
           <el-col :span="12">
-            <el-form-item label="壁画主题" prop="theme">
-              <el-input v-model="form.theme" placeholder="例如：九色鹿本生" />
+            <el-form-item
+              label="壁画主题"
+              prop="theme"
+            >
+              <el-input
+                v-model="form.theme"
+                placeholder="例如：九色鹿本生"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="年代" prop="dynasty">
-              <el-select v-model="form.dynasty" placeholder="请选择年代" style="width: 100%">
+            <el-form-item
+              label="年代"
+              prop="dynasty"
+            >
+              <el-select
+                v-model="form.dynasty"
+                placeholder="请选择年代"
+                style="width: 100%"
+              >
                 <el-option
                   v-for="dynasty in DYNASTY_OPTIONS"
                   :key="dynasty"
@@ -162,12 +199,21 @@ function handleCancel() {
         <el-row :gutter="24">
           <el-col :span="12">
             <el-form-item label="主色调">
-              <el-input v-model="form.mainColors" placeholder="例如：石青、赭石、土红" />
+              <el-input
+                v-model="form.mainColors"
+                placeholder="例如：石青、赭石、土红"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="壁画位置" prop="location">
-              <el-input v-model="form.location" placeholder="例如：窟内北壁" />
+            <el-form-item
+              label="壁画位置"
+              prop="location"
+            >
+              <el-input
+                v-model="form.location"
+                placeholder="例如：窟内北壁"
+              />
             </el-form-item>
           </el-col>
         </el-row>

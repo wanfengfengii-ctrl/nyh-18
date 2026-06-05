@@ -3,7 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElUpload } from 'element-plus'
 import type { UploadProps, UploadFile } from 'element-plus'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
+import { useEvidenceStore } from '@/stores/evidence'
+import { useDashboardStore } from '@/stores/dashboard'
 import StatCard from '@/components/StatCard.vue'
 import ImageCompare from '@/components/ImageCompare.vue'
 import ColorAnalyzer from '@/components/ColorAnalyzer.vue'
@@ -15,6 +17,7 @@ import type {
   TREATMENT_STATUS_OPTIONS,
   DiseaseType,
   ChangeType,
+  TreatmentStatus,
   EvidencePhoto,
   ImageComparison as ImageComparisonType,
 } from '@/types'
@@ -26,7 +29,9 @@ import {
 } from '@/types'
 
 const router = useRouter()
-const store = useMuralStore()
+const areaStore = useAreaStore()
+const evidenceStore = useEvidenceStore()
+const dashboardStore = useDashboardStore()
 
 const activeTab = ref('comparisons')
 const diseaseChartRef = ref<HTMLElement | null>(null)
@@ -38,12 +43,12 @@ const showCompareDialog = ref(false)
 const showColorDialog = ref(false)
 const selectedComparison = ref<ImageComparisonType | null>(null)
 
-const stats = computed(() => store.evidenceStats)
-const comparisons = computed(() => store.filteredImageComparisons)
-const treatments = computed(() => store.filteredTreatmentRecords)
-const diseasePoints = computed(() => store.filteredDiseasePoints)
-const areas = computed(() => store.areas)
-const photos = computed(() => store.evidencePhotos)
+const stats = computed(() => evidenceStore.evidenceStats)
+const comparisons = computed(() => evidenceStore.filteredImageComparisons)
+const treatments = computed(() => evidenceStore.filteredTreatmentRecords)
+const diseasePoints = computed(() => evidenceStore.filteredDiseasePoints)
+const areas = computed(() => areaStore.areas)
+const photos = computed(() => evidenceStore.evidencePhotos)
 
 const filterForm = ref({
   caveName: '',
@@ -96,23 +101,27 @@ const diseasePieOption = computed(() =>
   createPieOption(stats.value.diseaseDistribution, '病害类型分布')
 )
 const trendBarOption = computed(() =>
-  createBarOption(stats.value.monthlyComparisons, '月度对比趋势', '#c4a76c')
+  createBarOption(
+    stats.value.monthlyComparisons.map((d) => ({ name: d.date, value: d.count })),
+    '月度对比趋势',
+    '#c4a76c'
+  )
 )
 
 useECharts(diseaseChartRef, diseasePieOption.value)
 useECharts(trendChartRef, trendBarOption.value)
 
 onMounted(() => {
-  store.resetEvidenceFilterParams()
+  evidenceStore.resetEvidenceFilterParams()
 })
 
 function applyFilter() {
-  store.setEvidenceFilterParams({
+  evidenceStore.setEvidenceFilterParams({
     caveName: filterForm.value.caveName,
     areaId: filterForm.value.areaId,
-    diseaseType: filterForm.value.diseaseType,
-    changeType: filterForm.value.changeType,
-    treatmentStatus: filterForm.value.treatmentStatus,
+    diseaseType: filterForm.value.diseaseType as DiseaseType | '',
+    changeType: filterForm.value.changeType as ChangeType | '',
+    treatmentStatus: filterForm.value.treatmentStatus as TreatmentStatus | '',
     keyword: filterForm.value.keyword,
   })
 }
@@ -126,7 +135,7 @@ function resetFilter() {
     treatmentStatus: '',
     keyword: '',
   }
-  store.resetEvidenceFilterParams()
+  evidenceStore.resetEvidenceFilterParams()
 }
 
 function goToAreaDetail(areaId: string) {
@@ -213,7 +222,7 @@ function submitUpload() {
     uploadFiles.value.forEach((file, index) => {
       const area = getAreaByAreaId(uploadForm.value.areaId)
       const photoUrl = URL.createObjectURL(file.raw!)
-      store.addEvidencePhoto({
+      evidenceStore.addEvidencePhoto({
         areaId: uploadForm.value.areaId,
         observationId: uploadForm.value.observationId || `OBS_${Date.now()}_${index}`,
         fileName: file.name,
@@ -261,7 +270,7 @@ function createComparison() {
   const after = afterPhoto.value!
   const areaDiseasePoints = diseasePoints.value.filter((d) => d.areaId === compareForm.value.areaId)
 
-  store.addImageComparison({
+  evidenceStore.addImageComparison({
     areaId: compareForm.value.areaId,
     beforeImage: before,
     afterImage: after,
@@ -294,13 +303,18 @@ function handleMarkerClick(point: any) {
     <div class="page-header">
       <div class="header-content">
         <div>
-          <h1 class="page-title">壁画病害影像比对与修复取证中心</h1>
+          <h1 class="page-title">
+            壁画病害影像比对与修复取证中心
+          </h1>
           <p class="page-subtitle">
             支持同一区域上传不同时期现场照片，提供修复前后影像对比、病害点位标注、颜色变化可视化、裂隙扩展轨迹记录、处理方案与执行留痕
           </p>
         </div>
         <div class="header-actions">
-          <el-button type="primary" @click="openUploadDialog">
+          <el-button
+            type="primary"
+            @click="openUploadDialog"
+          >
             <el-icon><Upload /></el-icon>
             上传照片
           </el-button>
@@ -367,21 +381,34 @@ function handleMarkerClick(point: any) {
       />
     </div>
 
-    <el-row :gutter="16" class="chart-row">
+    <el-row
+      :gutter="16"
+      class="chart-row"
+    >
       <el-col :span="12">
         <div class="chart-card">
-          <div ref="diseaseChartRef" class="chart-container"></div>
+          <div
+            ref="diseaseChartRef"
+            class="chart-container"
+          />
         </div>
       </el-col>
       <el-col :span="12">
         <div class="chart-card">
-          <div ref="trendChartRef" class="chart-container"></div>
+          <div
+            ref="trendChartRef"
+            class="chart-container"
+          />
         </div>
       </el-col>
     </el-row>
 
     <div class="filter-card">
-      <el-form :inline="true" :model="filterForm" class="filter-form">
+      <el-form
+        :inline="true"
+        :model="filterForm"
+        class="filter-form"
+      >
         <el-form-item label="洞窟">
           <el-select
             v-model="filterForm.caveName"
@@ -452,18 +479,29 @@ function handleMarkerClick(point: any) {
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="applyFilter">
+          <el-button
+            type="primary"
+            @click="applyFilter"
+          >
             <el-icon><Search /></el-icon>
             筛选
           </el-button>
-          <el-button @click="resetFilter">重置</el-button>
+          <el-button @click="resetFilter">
+            重置
+          </el-button>
         </el-form-item>
       </el-form>
     </div>
 
     <div class="tabs-card">
-      <el-tabs v-model="activeTab" class="main-tabs">
-        <el-tab-pane label="影像对比" name="comparisons">
+      <el-tabs
+        v-model="activeTab"
+        class="main-tabs"
+      >
+        <el-tab-pane
+          label="影像对比"
+          name="comparisons"
+        >
           <div class="list-container">
             <div
               v-for="comp in comparisons"
@@ -495,7 +533,10 @@ function handleMarkerClick(point: any) {
                 </div>
               </div>
               
-              <div class="slider-compare-section" v-if="comp.beforeImage && comp.afterImage">
+              <div
+                v-if="comp.beforeImage && comp.afterImage"
+                class="slider-compare-section"
+              >
                 <ImageCompare
                   :before-image="comp.beforeImage"
                   :after-image="comp.afterImage"
@@ -509,7 +550,10 @@ function handleMarkerClick(point: any) {
                 <span class="analysis-label">变化分析:</span>
                 {{ comp.changeAnalysis }}
               </div>
-              <div class="disease-tags" v-if="comp.diseasePoints.length > 0">
+              <div
+                v-if="comp.diseasePoints.length > 0"
+                class="disease-tags"
+              >
                 <el-tag
                   v-for="point in comp.diseasePoints.slice(0, 5)"
                   :key="point.id"
@@ -528,21 +572,33 @@ function handleMarkerClick(point: any) {
                 </el-tag>
               </div>
               <div class="comparison-actions">
-                <el-button size="small" @click="openCompareDetail(comp)">
+                <el-button
+                  size="small"
+                  @click="openCompareDetail(comp)"
+                >
                   <el-icon><ZoomIn /></el-icon>
                   查看大图
                 </el-button>
-                <el-button size="small" type="primary">
+                <el-button
+                  size="small"
+                  type="primary"
+                >
                   <el-icon><Edit /></el-icon>
                   编辑标注
                 </el-button>
               </div>
             </div>
-            <el-empty v-if="comparisons.length === 0" description="暂无影像对比记录，点击右上角「创建对比」开始" />
+            <el-empty
+              v-if="comparisons.length === 0"
+              description="暂无影像对比记录，点击右上角「创建对比」开始"
+            />
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="修复方案" name="treatments">
+        <el-tab-pane
+          label="修复方案"
+          name="treatments"
+        >
           <div class="list-container">
             <div
               v-for="treatment in treatments"
@@ -588,25 +644,38 @@ function handleMarkerClick(point: any) {
                   :key="step.id"
                   class="step-item"
                 >
-                  <div class="step-number">{{ step.step }}</div>
+                  <div class="step-number">
+                    {{ step.step }}
+                  </div>
                   <div class="step-content">
-                    <div class="step-desc">{{ step.description }}</div>
+                    <div class="step-desc">
+                      {{ step.description }}
+                    </div>
                     <div class="step-meta">
                       <span>操作人: {{ step.operator }}</span>
                       <span v-if="step.completedAt">完成: {{ step.completedAt }}</span>
                     </div>
-                    <div v-if="step.remarks" class="step-remarks">
+                    <div
+                      v-if="step.remarks"
+                      class="step-remarks"
+                    >
                       备注: {{ step.remarks }}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <el-empty v-if="treatments.length === 0" description="暂无修复方案记录" />
+            <el-empty
+              v-if="treatments.length === 0"
+              description="暂无修复方案记录"
+            />
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="病害点位" name="diseases">
+        <el-tab-pane
+          label="病害点位"
+          name="diseases"
+        >
           <div class="diseases-grid">
             <div
               v-for="point in diseasePoints"
@@ -620,11 +689,16 @@ function handleMarkerClick(point: any) {
                 >
                   {{ getDiseaseTypeLabel(point.type) }}
                 </div>
-                <el-tag size="small" effect="light">
+                <el-tag
+                  size="small"
+                  effect="light"
+                >
                   {{ point.severity === 'mild' ? '轻微' : point.severity === 'moderate' ? '中度' : '严重' }}
                 </el-tag>
               </div>
-              <div class="disease-name">{{ point.name }}</div>
+              <div class="disease-name">
+                {{ point.name }}
+              </div>
               <div class="disease-area">
                 区域:
                 <span @click="goToAreaDetail(point.areaId)">
@@ -638,11 +712,17 @@ function handleMarkerClick(point: any) {
                 {{ point.description }}
               </div>
             </div>
-            <el-empty v-if="diseasePoints.length === 0" description="暂无病害点位记录" />
+            <el-empty
+              v-if="diseasePoints.length === 0"
+              description="暂无病害点位记录"
+            />
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="异常变化预警" name="alerts">
+        <el-tab-pane
+          label="异常变化预警"
+          name="alerts"
+        >
           <div class="alerts-list">
             <div
               v-for="alert in stats.abnormalChanges"
@@ -650,7 +730,10 @@ function handleMarkerClick(point: any) {
               class="alert-item"
             >
               <div class="alert-icon">
-                <el-icon :size="32" color="#f56c6c">
+                <el-icon
+                  :size="32"
+                  color="#f56c6c"
+                >
                   <WarningFilled />
                 </el-icon>
               </div>
@@ -658,21 +741,38 @@ function handleMarkerClick(point: any) {
                 <div class="alert-header">
                   <span class="alert-area">{{ alert.areaCode }}</span>
                   <span class="alert-theme">{{ alert.theme }}</span>
-                  <el-tag type="danger" size="small" effect="dark">
+                  <el-tag
+                    type="danger"
+                    size="small"
+                    effect="dark"
+                  >
                     {{ alert.changeType }}
                   </el-tag>
                 </div>
-                <div class="alert-cave">洞窟: {{ alert.caveName }}</div>
-                <div class="alert-desc">{{ alert.description }}</div>
-                <div class="alert-time">检测时间: {{ alert.detectedAt }}</div>
+                <div class="alert-cave">
+                  洞窟: {{ alert.caveName }}
+                </div>
+                <div class="alert-desc">
+                  {{ alert.description }}
+                </div>
+                <div class="alert-time">
+                  检测时间: {{ alert.detectedAt }}
+                </div>
               </div>
               <div class="alert-action">
-                <el-button type="primary" size="small" @click="goToAreaDetail(alert.areaId)">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="goToAreaDetail(alert.areaId)"
+                >
                   查看详情
                 </el-button>
               </div>
             </div>
-            <el-empty v-if="stats.abnormalChanges.length === 0" description="暂无异常变化预警" />
+            <el-empty
+              v-if="stats.abnormalChanges.length === 0"
+              description="暂无异常变化预警"
+            />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -684,8 +784,14 @@ function handleMarkerClick(point: any) {
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form :model="uploadForm" label-width="100px">
-        <el-form-item label="选择区域" required>
+      <el-form
+        :model="uploadForm"
+        label-width="100px"
+      >
+        <el-form-item
+          label="选择区域"
+          required
+        >
           <el-select
             v-model="uploadForm.areaId"
             placeholder="请选择壁画区域"
@@ -735,7 +841,9 @@ function handleMarkerClick(point: any) {
             accept="image/*"
             class="uploader"
           >
-            <el-icon class="uploader-icon"><Plus /></el-icon>
+            <el-icon class="uploader-icon">
+              <Plus />
+            </el-icon>
             <template #tip>
               <div class="el-upload__tip">
                 支持 jpg/png 格式，单张不超过 10MB
@@ -745,8 +853,14 @@ function handleMarkerClick(point: any) {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showUploadDialog = false">取消</el-button>
-        <el-button type="primary" :loading="uploadLoading" @click="submitUpload">
+        <el-button @click="showUploadDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="uploadLoading"
+          @click="submitUpload"
+        >
           确认上传
         </el-button>
       </template>
@@ -759,8 +873,14 @@ function handleMarkerClick(point: any) {
       :close-on-click-modal="false"
     >
       <div v-if="!selectedComparison">
-        <el-form :model="compareForm" label-width="100px">
-          <el-form-item label="选择区域" required>
+        <el-form
+          :model="compareForm"
+          label-width="100px"
+        >
+          <el-form-item
+            label="选择区域"
+            required
+          >
             <el-select
               v-model="compareForm.areaId"
               placeholder="请选择壁画区域"
@@ -777,7 +897,10 @@ function handleMarkerClick(point: any) {
           </el-form-item>
           <el-row :gutter="16">
             <el-col :span="12">
-              <el-form-item label="修复前照片" required>
+              <el-form-item
+                label="修复前照片"
+                required
+              >
                 <el-select
                   v-model="compareForm.beforePhotoId"
                   placeholder="选择较早的照片"
@@ -794,7 +917,10 @@ function handleMarkerClick(point: any) {
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item label="修复后照片" required>
+              <el-form-item
+                label="修复后照片"
+                required
+              >
                 <el-select
                   v-model="compareForm.afterPhotoId"
                   placeholder="选择较新的照片"
@@ -812,7 +938,10 @@ function handleMarkerClick(point: any) {
             </el-col>
           </el-row>
           <el-form-item label="变化类型">
-            <el-select v-model="compareForm.changeType" style="width: 100%">
+            <el-select
+              v-model="compareForm.changeType"
+              style="width: 100%"
+            >
               <el-option
                 v-for="opt in changeTypeOptions"
                 :key="opt.value"
@@ -831,7 +960,10 @@ function handleMarkerClick(point: any) {
           </el-form-item>
         </el-form>
       </div>
-      <div v-else class="compare-detail">
+      <div
+        v-else
+        class="compare-detail"
+      >
         <ImageCompare
           :before-image="selectedComparison.beforeImage"
           :after-image="selectedComparison.afterImage"
@@ -846,8 +978,13 @@ function handleMarkerClick(point: any) {
       </div>
       <template #footer>
         <template v-if="!selectedComparison">
-          <el-button @click="showCompareDialog = false">取消</el-button>
-          <el-button type="primary" @click="createComparison">
+          <el-button @click="showCompareDialog = false">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            @click="createComparison"
+          >
             创建对比
           </el-button>
         </template>
@@ -867,7 +1004,9 @@ function handleMarkerClick(point: any) {
     >
       <ColorAnalyzer />
       <template #footer>
-        <el-button @click="showColorDialog = false">关闭</el-button>
+        <el-button @click="showColorDialog = false">
+          关闭
+        </el-button>
       </template>
     </el-dialog>
   </div>

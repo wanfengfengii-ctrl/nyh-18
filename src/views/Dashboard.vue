@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMuralStore } from '@/stores/mural'
+import { useDashboardStore } from '@/stores/dashboard'
+import { useEvidenceStore } from '@/stores/evidence'
+import { useInspectionStore } from '@/stores/inspection'
 import StatCard from '@/components/StatCard.vue'
 import { useECharts, createPieOption, createBarOption, createLineOption, createRingOption } from '@/composables/useECharts'
 
 const router = useRouter()
-const store = useMuralStore()
+const dashboardStore = useDashboardStore()
+const evidenceStore = useEvidenceStore()
+const inspectionStore = useInspectionStore()
 
 const riskChartRef = ref<HTMLElement | null>(null)
 const dynastyChartRef = ref<HTMLElement | null>(null)
@@ -16,9 +20,9 @@ const caveChartRef = ref<HTMLElement | null>(null)
 const riskTrendChartRef = ref<HTMLElement | null>(null)
 const evidenceChartRef = ref<HTMLElement | null>(null)
 
-const stats = computed(() => store.dashboardStats)
-const evidenceStats = computed(() => store.evidenceStats)
-const inspectionStats = computed(() => store.inspectionStats)
+const stats = computed(() => dashboardStore.stats)
+const evidenceStats = computed(() => evidenceStore.stats)
+const inspectionStats = computed(() => inspectionStore.stats)
 
 const riskPieOption = computed(() =>
   createPieOption(stats.value.riskDistribution, '风险等级分布')
@@ -82,7 +86,11 @@ const riskTrendChartOption = computed(() => {
 })
 
 const evidenceTrendOption = computed(() =>
-  createBarOption(evidenceStats.value.monthlyComparisons, '月度影像对比趋势', '#c4a76c')
+  createBarOption(
+    evidenceStats.value.monthlyComparisons.map((d) => ({ name: d.date, value: d.count })),
+    '月度影像对比趋势',
+    '#c4a76c'
+  )
 )
 
 useECharts(riskChartRef, riskPieOption.value)
@@ -113,8 +121,12 @@ function goToInspection() {
 <template>
   <div class="dashboard">
     <div class="page-header">
-      <h1 class="page-title">数据概览</h1>
-      <p class="page-subtitle">实时监控石窟壁画保护状况，掌握全局动态</p>
+      <h1 class="page-title">
+        数据概览
+      </h1>
+      <p class="page-subtitle">
+        实时监控石窟壁画保护状况，掌握全局动态
+      </p>
     </div>
 
     <div class="section-title">
@@ -181,7 +193,11 @@ function goToInspection() {
 
     <div class="section-title">
       <h2>影像取证统计</h2>
-      <el-button type="primary" link @click="goToEvidence">
+      <el-button
+        type="primary"
+        link
+        @click="goToEvidence"
+      >
         查看详情 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </div>
@@ -243,19 +259,32 @@ function goToInspection() {
       />
     </div>
 
-    <div class="section-title" v-if="evidenceStats.abnormalChanges.length > 0">
+    <div
+      v-if="evidenceStats.abnormalChanges.length > 0"
+      class="section-title"
+    >
       <h2 class="warning-title">
         <el-icon><WarningFilled /></el-icon>
         异常变化预警
       </h2>
-      <el-badge :value="evidenceStats.abnormalChanges.length" type="danger">
-        <el-button type="primary" link @click="goToEvidence">
+      <el-badge
+        :value="evidenceStats.abnormalChanges.length"
+        type="danger"
+      >
+        <el-button
+          type="primary"
+          link
+          @click="goToEvidence"
+        >
           查看全部
         </el-button>
       </el-badge>
     </div>
 
-    <div class="alert-section" v-if="evidenceStats.abnormalChanges.length > 0">
+    <div
+      v-if="evidenceStats.abnormalChanges.length > 0"
+      class="alert-section"
+    >
       <div
         v-for="alert in evidenceStats.abnormalChanges.slice(0, 5)"
         :key="alert.areaId + alert.detectedAt"
@@ -263,7 +292,10 @@ function goToInspection() {
         @click="goToAreas()"
       >
         <div class="alert-icon">
-          <el-icon :size="28" color="#f56c6c">
+          <el-icon
+            :size="28"
+            color="#f56c6c"
+          >
             <WarningFilled />
           </el-icon>
         </div>
@@ -271,12 +303,20 @@ function goToInspection() {
           <div class="alert-header">
             <span class="alert-area">{{ alert.areaCode }}</span>
             <span class="alert-theme">{{ alert.theme }}</span>
-            <el-tag type="danger" size="small" effect="dark">
+            <el-tag
+              type="danger"
+              size="small"
+              effect="dark"
+            >
               {{ alert.changeType }}
             </el-tag>
           </div>
-          <div class="alert-cave">洞窟: {{ alert.caveName }}</div>
-          <div class="alert-desc">{{ alert.description }}</div>
+          <div class="alert-cave">
+            洞窟: {{ alert.caveName }}
+          </div>
+          <div class="alert-desc">
+            {{ alert.description }}
+          </div>
         </div>
         <div class="alert-time">
           {{ alert.detectedAt }}
@@ -286,7 +326,11 @@ function goToInspection() {
 
     <div class="section-title">
       <h2>巡检任务统计</h2>
-      <el-button type="primary" link @click="goToInspection">
+      <el-button
+        type="primary"
+        link
+        @click="goToInspection"
+      >
         查看详情 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </div>
@@ -349,19 +393,32 @@ function goToInspection() {
       />
     </div>
 
-    <div class="section-title" v-if="inspectionStats.overdueTaskList.length > 0">
+    <div
+      v-if="inspectionStats.overdueTaskList.length > 0"
+      class="section-title"
+    >
       <h2 class="warning-title">
         <el-icon><WarningFilled /></el-icon>
         逾期巡检任务
       </h2>
-      <el-badge :value="inspectionStats.overdueTaskList.length" type="danger">
-        <el-button type="primary" link @click="goToInspection">
+      <el-badge
+        :value="inspectionStats.overdueTaskList.length"
+        type="danger"
+      >
+        <el-button
+          type="primary"
+          link
+          @click="goToInspection"
+        >
           查看全部
         </el-button>
       </el-badge>
     </div>
 
-    <div class="overdue-section" v-if="inspectionStats.overdueTaskList.length > 0">
+    <div
+      v-if="inspectionStats.overdueTaskList.length > 0"
+      class="overdue-section"
+    >
       <div
         v-for="task in inspectionStats.overdueTaskList.slice(0, 5)"
         :key="task.id"
@@ -369,7 +426,10 @@ function goToInspection() {
         @click="goToInspection()"
       >
         <div class="overdue-icon">
-          <el-icon :size="28" color="#f56c6c">
+          <el-icon
+            :size="28"
+            color="#f56c6c"
+          >
             <Clock />
           </el-icon>
         </div>
@@ -377,12 +437,20 @@ function goToInspection() {
           <div class="overdue-header">
             <span class="overdue-area">{{ task.areaCode }}</span>
             <span class="overdue-name">{{ task.taskName }}</span>
-            <el-tag type="danger" size="small" effect="dark">
+            <el-tag
+              type="danger"
+              size="small"
+              effect="dark"
+            >
               已逾期
             </el-tag>
           </div>
-          <div class="overdue-cave">洞窟: {{ task.caveName }}</div>
-          <div class="overdue-assignee">执行人: {{ task.assigneeName }}</div>
+          <div class="overdue-cave">
+            洞窟: {{ task.caveName }}
+          </div>
+          <div class="overdue-assignee">
+            执行人: {{ task.assigneeName }}
+          </div>
         </div>
         <div class="overdue-time">
           截止: {{ task.dueDate }}
@@ -392,25 +460,46 @@ function goToInspection() {
 
     <div class="chart-grid">
       <div class="chart-card">
-        <div ref="riskChartRef" class="chart-container"></div>
+        <div
+          ref="riskChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card">
-        <div ref="progressChartRef" class="chart-container"></div>
+        <div
+          ref="progressChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card chart-wide">
-        <div ref="riskTrendChartRef" class="chart-container"></div>
+        <div
+          ref="riskTrendChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card chart-wide">
-        <div ref="trendChartRef" class="chart-container"></div>
+        <div
+          ref="trendChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card chart-wide">
-        <div ref="evidenceChartRef" class="chart-container"></div>
+        <div
+          ref="evidenceChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card">
-        <div ref="dynastyChartRef" class="chart-container"></div>
+        <div
+          ref="dynastyChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card">
-        <div ref="caveChartRef" class="chart-container"></div>
+        <div
+          ref="caveChartRef"
+          class="chart-container"
+        />
       </div>
     </div>
   </div>

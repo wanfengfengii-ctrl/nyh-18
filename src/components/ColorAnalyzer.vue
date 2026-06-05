@@ -254,16 +254,36 @@ onMounted(() => {
   <div class="color-analyzer">
     <div class="analyzer-header">
       <div class="header-info">
-        <h3 class="title">壁画颜色变化分析</h3>
-        <p class="subtitle">通过色差分析监测壁画褪色、变色情况，ΔE 值表示颜色差异程度</p>
+        <h3 class="title">
+          壁画颜色变化分析
+        </h3>
+        <p class="subtitle">
+          通过色差分析监测壁画褪色、变色情况，ΔE 值表示颜色差异程度
+        </p>
       </div>
       <div class="header-actions">
-        <el-select v-model="selectedPeriod" size="small" style="width: 120px">
-          <el-option label="近3个月" value="3m" />
-          <el-option label="近6个月" value="6m" />
-          <el-option label="近12个月" value="12m" />
+        <el-select
+          v-model="selectedPeriod"
+          size="small"
+          style="width: 120px"
+        >
+          <el-option
+            label="近3个月"
+            value="3m"
+          />
+          <el-option
+            label="近6个月"
+            value="6m"
+          />
+          <el-option
+            label="近12个月"
+            value="12m"
+          />
         </el-select>
-        <el-button type="primary" size="small">
+        <el-button
+          type="primary"
+          size="small"
+        >
           <el-icon><Refresh /></el-icon>
           重新分析
         </el-button>
@@ -272,129 +292,251 @@ onMounted(() => {
 
     <div class="stats-row">
       <div class="stat-item">
-        <div class="stat-icon" style="background: #67c23a">
+        <div
+          class="stat-icon"
+          style="background: #67c23a"
+        >
           <el-icon><Check /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">8</div>
-          <div class="stat-label">正常区域</div>
+          <div class="stat-value">
+            8
+          </div>
+          <div class="stat-label">
+            正常区域
+          </div>
         </div>
       </div>
       <div class="stat-item">
-        <div class="stat-icon" style="background: #e6a23c">
+        <div
+          class="stat-icon"
+          style="background: #e6a23c"
+        >
           <el-icon><Warning /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">7</div>
-          <div class="stat-label">需要关注</div>
+          <div class="stat-value">
+            7
+          </div>
+          <div class="stat-label">
+            需要关注
+          </div>
         </div>
       </div>
       <div class="stat-item">
-        <div class="stat-icon" style="background: #f56c6c">
+        <div
+          class="stat-icon"
+          style="background: #f56c6c"
+        >
           <el-icon><WarningFilled /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">5</div>
-          <div class="stat-label">显著变化</div>
+          <div class="stat-value">
+            5
+          </div>
+          <div class="stat-label">
+            显著变化
+          </div>
         </div>
       </div>
       <div class="stat-item">
-        <div class="stat-icon" style="background: #dc143c">
+        <div
+          class="stat-icon"
+          style="background: #dc143c"
+        >
           <el-icon><CircleClose /></el-icon>
         </div>
         <div class="stat-content">
-          <div class="stat-value">2</div>
-          <div class="stat-label">严重褪色</div>
+          <div class="stat-value">
+            2
+          </div>
+          <div class="stat-label">
+            严重褪色
+          </div>
         </div>
       </div>
     </div>
 
-    <el-row :gutter="16" class="charts-row">
+    <el-row
+      :gutter="16"
+      class="charts-row"
+    >
       <el-col :span="16">
         <div class="chart-card">
-          <div class="chart-title">区域色差热力图</div>
-          <div ref="heatmapChartRef" class="chart-container" style="height: 400px"></div>
+          <div class="chart-title">
+            区域色差热力图
+          </div>
+          <div
+            ref="heatmapChartRef"
+            class="chart-container"
+            style="height: 400px"
+          />
         </div>
       </el-col>
       <el-col :span="8">
         <div class="chart-card">
-          <div class="chart-title">色差趋势</div>
-          <div ref="timelineChartRef" class="chart-container" style="height: 400px"></div>
+          <div class="chart-title">
+            色差趋势
+          </div>
+          <div
+            ref="timelineChartRef"
+            class="chart-container"
+            style="height: 400px"
+          />
         </div>
       </el-col>
     </el-row>
 
     <div class="chart-card">
-      <div class="chart-title">颜色分量变化分析</div>
-      <div ref="diffChartRef" class="chart-container" style="height: 350px"></div>
+      <div class="chart-title">
+        颜色分量变化分析
+      </div>
+      <div
+        ref="diffChartRef"
+        class="chart-container"
+        style="height: 350px"
+      />
     </div>
 
     <div class="detail-table">
-      <div class="table-title">详细分析报告</div>
-      <el-table :data="colorAnalysisData" stripe border>
-        <el-table-column prop="name" label="区域" width="150" />
-        <el-table-column label="色差 ΔE" width="120">
+      <div class="table-title">
+        详细分析报告
+      </div>
+      <el-table
+        :data="colorAnalysisData"
+        stripe
+        border
+      >
+        <el-table-column
+          prop="name"
+          label="区域"
+          width="150"
+        />
+        <el-table-column
+          label="色差 ΔE"
+          width="120"
+        >
           <template #default="{ row }">
-            <span class="delta-value" :style="{ color: getSeverityColor(row.deltaE) }">
+            <span
+              class="delta-value"
+              :style="{ color: getSeverityColor(row.deltaE) }"
+            >
               {{ row.deltaE.toFixed(1) }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="严重程度" width="100">
+        <el-table-column
+          label="严重程度"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag :type="row.deltaE < 12 ? (row.deltaE < 6 ? 'success' : 'warning') : 'danger'" size="small">
+            <el-tag
+              :type="row.deltaE < 12 ? (row.deltaE < 6 ? 'success' : 'warning') : 'danger'"
+              size="small"
+            >
               {{ getSeverityLabel(row.deltaE) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="brightness" label="亮度变化" width="100">
+        <el-table-column
+          prop="brightness"
+          label="亮度变化"
+          width="100"
+        >
           <template #default="{ row }">
             <span :style="{ color: row.brightness < -10 ? '#f56c6c' : '#e6a23c' }">
               {{ row.brightness }}%
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="saturation" label="饱和度变化" width="100">
+        <el-table-column
+          prop="saturation"
+          label="饱和度变化"
+          width="100"
+        >
           <template #default="{ row }">
             <span :style="{ color: row.saturation < -8 ? '#f56c6c' : '#e6a23c' }">
               {{ row.saturation }}%
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="hue" label="色相偏移" width="80" />
-        <el-table-column label="建议" width="200">
+        <el-table-column
+          prop="hue"
+          label="色相偏移"
+          width="80"
+        />
+        <el-table-column
+          label="建议"
+          width="200"
+        >
           <template #default="{ row }">
-            <span v-if="row.deltaE < 6" style="color: #67c23a">继续监测</span>
-            <span v-else-if="row.deltaE < 12" style="color: #e6a23c">加强巡查频次</span>
-            <span v-else-if="row.deltaE < 20" style="color: #f56c6c">制定修复方案</span>
-            <span v-else style="color: #dc143c">紧急修复处理</span>
+            <span
+              v-if="row.deltaE < 6"
+              style="color: #67c23a"
+            >继续监测</span>
+            <span
+              v-else-if="row.deltaE < 12"
+              style="color: #e6a23c"
+            >加强巡查频次</span>
+            <span
+              v-else-if="row.deltaE < 20"
+              style="color: #f56c6c"
+            >制定修复方案</span>
+            <span
+              v-else
+              style="color: #dc143c"
+            >紧急修复处理</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column
+          label="操作"
+          width="100"
+          fixed="right"
+        >
           <template #default>
-            <el-button type="primary" link size="small">查看详情</el-button>
+            <el-button
+              type="primary"
+              link
+              size="small"
+            >
+              查看详情
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
 
     <div class="color-legend">
-      <div class="legend-title">色差说明 (ΔE)</div>
+      <div class="legend-title">
+        色差说明 (ΔE)
+      </div>
       <div class="legend-items">
         <div class="legend-item">
-          <span class="legend-color" style="background: #67c23a"></span>
+          <span
+            class="legend-color"
+            style="background: #67c23a"
+          />
           <span class="legend-text">0-6: 轻微差异，人眼几乎无法察觉</span>
         </div>
         <div class="legend-item">
-          <span class="legend-color" style="background: #e6a23c"></span>
+          <span
+            class="legend-color"
+            style="background: #e6a23c"
+          />
           <span class="legend-text">6-12: 中等差异，专业人员可识别</span>
         </div>
         <div class="legend-item">
-          <span class="legend-color" style="background: #f56c6c"></span>
+          <span
+            class="legend-color"
+            style="background: #f56c6c"
+          />
           <span class="legend-text">12-20: 显著差异，肉眼明显可见</span>
         </div>
         <div class="legend-item">
-          <span class="legend-color" style="background: #dc143c"></span>
+          <span
+            class="legend-color"
+            style="background: #dc143c"
+          />
           <span class="legend-text">20+: 严重差异，颜色大幅改变</span>
         </div>
       </div>

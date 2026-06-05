@@ -195,7 +195,7 @@ export interface ColorSample {
   b: number
   l: number
   a: number
-  b: number
+  labB: number
   createdAt: string
 }
 

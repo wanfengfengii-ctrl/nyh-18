@@ -29,23 +29,40 @@ const iconColor = computed(() => ({
 </script>
 
 <template>
-  <div class="stat-card" :style="gradientStyle">
+  <div
+    class="stat-card"
+    :style="gradientStyle"
+  >
     <div class="card-content">
       <div class="card-left">
-        <div class="card-title">{{ title }}</div>
+        <div class="card-title">
+          {{ title }}
+        </div>
         <div class="card-value">
           <span class="value-number">{{ value }}</span>
-          <span v-if="suffix" class="value-suffix">{{ suffix }}</span>
+          <span
+            v-if="suffix"
+            class="value-suffix"
+          >{{ suffix }}</span>
         </div>
-        <div v-if="trendLabel" class="card-trend">
+        <div
+          v-if="trendLabel"
+          class="card-trend"
+        >
           <el-icon :class="trend >= 0 ? 'trend-up' : 'trend-down'">
             <TrendCharts v-if="trend >= 0" />
-            <TrendCharts v-else style="transform: rotate(180deg)" />
+            <TrendCharts
+              v-else
+              style="transform: rotate(180deg)"
+            />
           </el-icon>
           <span>{{ trendLabel }}</span>
         </div>
       </div>
-      <div class="card-icon" :style="iconColor">
+      <div
+        class="card-icon"
+        :style="iconColor"
+      >
         <el-icon :size="28">
           <component :is="icon" />
         </el-icon>

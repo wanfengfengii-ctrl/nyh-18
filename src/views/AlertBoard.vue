@@ -2,14 +2,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useMuralStore } from '@/stores/mural'
+import { useAreaStore } from '@/stores/area'
+import { useAlertStore } from '@/stores/alert'
+import { useDashboardStore } from '@/stores/dashboard'
 import StatCard from '@/components/StatCard.vue'
 import { useECharts, createPieOption, createBarOption } from '@/composables/useECharts'
 import type { RiskAlert, RiskLevel } from '@/types'
 import { getRiskLabel, getRiskColor } from '@/utils'
 
 const router = useRouter()
-const store = useMuralStore()
+const areaStore = useAreaStore()
+const alertStore = useAlertStore()
+const dashboardStore = useDashboardStore()
 
 const activeTab = ref('all')
 const alertTypeFilter = ref('all')
@@ -18,14 +22,14 @@ const riskChartRef = ref<HTMLElement | null>(null)
 const caveChartRef = ref<HTMLElement | null>(null)
 
 const stats = computed(() => ({
-  total: store.alerts.length,
-  unread: store.unreadAlerts.length,
-  highRisk: store.highRiskAreas.length,
-  overdue: store.overdueAreas.length,
+  total: alertStore.alerts.length,
+  unread: alertStore.unreadAlerts.length,
+  highRisk: areaStore.highRiskAreas.length,
+  overdue: areaStore.overdueAreas.length,
 }))
 
 const filteredAlerts = computed(() => {
-  let result = store.alerts
+  let result = alertStore.alerts
   if (activeTab.value === 'unread') {
     result = result.filter((a) => !a.isRead)
   }
@@ -35,21 +39,21 @@ const filteredAlerts = computed(() => {
   return result
 })
 
-const highRiskAreas = computed(() => store.highRiskAreas)
-const overdueAreas = computed(() => store.overdueAreas)
+const highRiskAreas = computed(() => areaStore.highRiskAreas)
+const overdueAreas = computed(() => areaStore.overdueAreas)
 
 const riskPieOption = computed(() =>
-  createPieOption(store.dashboardStats.riskDistribution, '风险等级分布')
+  createPieOption(dashboardStore.dashboardStats.riskDistribution, '风险等级分布')
 )
 const caveBarOption = computed(() =>
-  createBarOption(store.dashboardStats.caveDistribution, '各洞窟风险区域分布', '#f56c6c')
+  createBarOption(dashboardStore.dashboardStats.caveDistribution, '各洞窟风险区域分布', '#f56c6c')
 )
 
 useECharts(riskChartRef, riskPieOption.value)
 useECharts(caveChartRef, caveBarOption.value)
 
 onMounted(() => {
-  store.refreshOverdueStatus()
+  areaStore.refreshOverdueStatus()
 })
 
 function getAlertTypeIcon(type: string): string {
@@ -90,13 +94,13 @@ function alertTagType(level: RiskLevel): 'success' | 'warning' | 'danger' {
 
 function handleAlertClick(alert: RiskAlert) {
   if (!alert.isRead) {
-    store.markAlertAsRead(alert.id)
+    alertStore.markAlertAsRead(alert.id)
   }
   router.push(`/areas/${alert.areaId}`)
 }
 
 function markAllAsRead() {
-  store.markAllAlertsAsRead()
+  alertStore.markAllAlertsAsRead()
   ElMessage.success('已全部标记为已读')
 }
 
@@ -118,13 +122,18 @@ function formatDateTime(isoString: string): string {
   <div class="alert-board">
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">风险预警看板</h1>
+        <h1 class="page-title">
+          风险预警看板
+        </h1>
         <p class="page-subtitle">
           实时监控风险区域，及时处理预警信息
         </p>
       </div>
       <div class="header-right">
-        <el-button @click="markAllAsRead" :disabled="stats.unread === 0">
+        <el-button
+          :disabled="stats.unread === 0"
+          @click="markAllAsRead"
+        >
           <el-icon><Check /></el-icon>
           全部标记已读
         </el-button>
@@ -178,9 +187,18 @@ function formatDateTime(isoString: string): string {
               预警列表
             </h3>
             <div class="section-filters">
-              <el-tabs v-model="activeTab" class="inline-tabs">
-                <el-tab-pane label="全部" name="all" />
-                <el-tab-pane :label="`未读 (${stats.unread})`" name="unread" />
+              <el-tabs
+                v-model="activeTab"
+                class="inline-tabs"
+              >
+                <el-tab-pane
+                  label="全部"
+                  name="all"
+                />
+                <el-tab-pane
+                  :label="`未读 (${stats.unread})`"
+                  name="unread"
+                />
               </el-tabs>
               <el-select
                 v-model="alertTypeFilter"
@@ -189,9 +207,18 @@ function formatDateTime(isoString: string): string {
                 size="small"
                 style="width: 140px"
               >
-                <el-option label="高风险" value="highRisk" />
-                <el-option label="超期未观察" value="overdue" />
-                <el-option label="新增风险" value="newRisk" />
+                <el-option
+                  label="高风险"
+                  value="highRisk"
+                />
+                <el-option
+                  label="超期未观察"
+                  value="overdue"
+                />
+                <el-option
+                  label="新增风险"
+                  value="newRisk"
+                />
               </el-select>
             </div>
           </div>
@@ -214,13 +241,20 @@ function formatDateTime(isoString: string): string {
               </div>
               <div class="alert-content">
                 <div class="alert-header">
-                  <span class="alert-type" :style="{ color: getAlertTypeColor(alert.type) }">
+                  <span
+                    class="alert-type"
+                    :style="{ color: getAlertTypeColor(alert.type) }"
+                  >
                     {{ getAlertTypeLabel(alert.type) }}
                   </span>
                   <span class="alert-time">{{ formatDateTime(alert.createdAt) }}</span>
                 </div>
-                <div class="alert-title">{{ alert.title }}</div>
-                <div class="alert-desc">{{ alert.description }}</div>
+                <div class="alert-title">
+                  {{ alert.title }}
+                </div>
+                <div class="alert-desc">
+                  {{ alert.description }}
+                </div>
                 <div class="alert-meta">
                   <span class="meta-item">
                     <el-icon><Tickets /></el-icon>
@@ -245,10 +279,16 @@ function formatDateTime(isoString: string): string {
                 </div>
               </div>
               <div class="alert-status">
-                <span v-if="!alert.isRead" class="unread-dot"></span>
+                <span
+                  v-if="!alert.isRead"
+                  class="unread-dot"
+                />
               </div>
             </div>
-            <el-empty v-if="filteredAlerts.length === 0" description="暂无预警信息" />
+            <el-empty
+              v-if="filteredAlerts.length === 0"
+              description="暂无预警信息"
+            />
           </div>
         </div>
       </el-col>
@@ -267,20 +307,37 @@ function formatDateTime(isoString: string): string {
               @click="goToAreaDetail(area.id)"
             >
               <div class="area-info">
-                <div class="area-code">{{ area.areaCode }}</div>
-                <div class="area-name">{{ area.theme }}</div>
-                <div class="area-location">{{ area.caveName }}</div>
+                <div class="area-code">
+                  {{ area.areaCode }}
+                </div>
+                <div class="area-name">
+                  {{ area.theme }}
+                </div>
+                <div class="area-location">
+                  {{ area.caveName }}
+                </div>
               </div>
               <div class="area-status">
-                <el-tag type="danger" effect="dark" size="small">
+                <el-tag
+                  type="danger"
+                  effect="dark"
+                  size="small"
+                >
                   高风险
                 </el-tag>
-                <span v-if="area.isOverdue" class="overdue-badge">
+                <span
+                  v-if="area.isOverdue"
+                  class="overdue-badge"
+                >
                   超期{{ area.overdueDays }}天
                 </span>
               </div>
             </div>
-            <el-empty v-if="highRiskAreas.length === 0" description="暂无高风险区域" :image-size="60" />
+            <el-empty
+              v-if="highRiskAreas.length === 0"
+              description="暂无高风险区域"
+              :image-size="60"
+            />
           </div>
         </div>
 
@@ -297,9 +354,15 @@ function formatDateTime(isoString: string): string {
               @click="goToAreaDetail(area.id)"
             >
               <div class="area-info">
-                <div class="area-code">{{ area.areaCode }}</div>
-                <div class="area-name">{{ area.theme }}</div>
-                <div class="area-location">{{ area.caveName }}</div>
+                <div class="area-code">
+                  {{ area.areaCode }}
+                </div>
+                <div class="area-name">
+                  {{ area.theme }}
+                </div>
+                <div class="area-location">
+                  {{ area.caveName }}
+                </div>
               </div>
               <div class="area-status">
                 <span class="overdue-days">
@@ -314,7 +377,11 @@ function formatDateTime(isoString: string): string {
                 </el-tag>
               </div>
             </div>
-            <el-empty v-if="overdueAreas.length === 0" description="暂无超期区域" :image-size="60" />
+            <el-empty
+              v-if="overdueAreas.length === 0"
+              description="暂无超期区域"
+              :image-size="60"
+            />
           </div>
         </div>
       </el-col>
@@ -322,10 +389,16 @@ function formatDateTime(isoString: string): string {
 
     <div class="chart-section">
       <div class="chart-card">
-        <div ref="riskChartRef" class="chart-container"></div>
+        <div
+          ref="riskChartRef"
+          class="chart-container"
+        />
       </div>
       <div class="chart-card">
-        <div ref="caveChartRef" class="chart-container"></div>
+        <div
+          ref="caveChartRef"
+          class="chart-container"
+        />
       </div>
     </div>
   </div>
