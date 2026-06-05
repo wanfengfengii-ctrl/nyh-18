@@ -281,12 +281,14 @@ export const useMuralStore = defineStore('mural', () => {
   }
 
   function addArea(
-    data: Omit<MuralArea, 'id' | 'firstObservationDate' | 'lastObservationDate' | 'observationCount' | 'isOverdue' | 'overdueDays' | 'createdAt' | 'updatedAt'>
+    data: Omit<MuralArea, 'id' | 'firstObservationDate' | 'lastObservationDate' | 'observationCount' | 'isOverdue' | 'overdueDays' | 'createdAt' | 'updatedAt' | 'currentRiskLevel' | 'currentProcessingStatus'>
   ): MuralArea {
     const now = new Date().toISOString()
     const newArea: MuralArea = {
       ...data,
       id: generateId(),
+      currentRiskLevel: 'low',
+      currentProcessingStatus: 'pending',
       firstObservationDate: new Date().toISOString().split('T')[0],
       lastObservationDate: new Date().toISOString().split('T')[0],
       observationCount: 0,

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage, ElMessageBox, ElDialog } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Edit } from '@element-plus/icons-vue'
 import { useMuralStore } from '@/stores/mural'
-import { useECharts, createLineOption } from '@/composables/useECharts'
+import { useECharts } from '@/composables/useECharts'
 import type { RiskLevel, ProcessingStatus, FadingLevel, ObservationRecord } from '@/types'
 import {
   FADING_LEVEL_OPTIONS,
@@ -26,10 +27,12 @@ const observations = computed(() => store.areaObservations)
 const riskTrend = computed(() => store.getRiskTrendByAreaId(areaId.value))
 
 const showAddObservation = ref(false)
+const showEditObservation = ref(false)
 const activeTab = ref('timeline')
 const selectedObservation = ref<ObservationRecord | null>(null)
 const showObservationDetail = ref(false)
 
+const newObservationFormRef = ref()
 const newObservation = ref({
   observationDate: new Date().toISOString().split('T')[0],
   fadingLevel: 'mild' as FadingLevel,
@@ -38,6 +41,33 @@ const newObservation = ref({
   remarks: '',
   images: [] as string[],
 })
+
+const editObservationFormRef = ref()
+const editObservation = ref({
+  id: '',
+  observationDate: '',
+  fadingLevel: 'mild' as FadingLevel,
+  crackLength: 0,
+  processingStatus: 'pending' as ProcessingStatus,
+  remarks: '',
+  images: [] as string[],
+})
+
+const observationFormRules = {
+  observationDate: [
+    { required: true, message: '请选择观察日期', trigger: 'change' },
+  ],
+  fadingLevel: [
+    { required: true, message: '请选择褪变等级', trigger: 'change' },
+  ],
+  crackLength: [
+    { required: true, message: '请输入裂隙长度', trigger: 'blur' },
+    { type: 'number', min: 0, message: '裂隙长度不能为负数', trigger: 'blur' },
+  ],
+  processingStatus: [
+    { required: true, message: '请选择处理状态', trigger: 'change' },
+  ],
+}
 
 const trendChartRef = ref<HTMLElement | null>(null)
 
@@ -173,31 +203,81 @@ function fadingTagType(level: FadingLevel): 'success' | 'info' | 'warning' | 'da
   return types[level]
 }
 
+function goToEdit() {
+  router.push(`/areas/${areaId.value}/edit`)
+}
+
 function handleAddObservation() {
   showAddObservation.value = true
 }
 
 function submitObservation() {
-  const success = store.addObservation(areaId.value, newObservation.value)
-  if (success) {
-    ElMessage.success('观察记录已添加')
-    showAddObservation.value = false
-    newObservation.value = {
-      observationDate: new Date().toISOString().split('T')[0],
-      fadingLevel: 'mild' as FadingLevel,
-      crackLength: 0,
-      processingStatus: 'pending' as ProcessingStatus,
-      remarks: '',
-      images: [],
+  newObservationFormRef.value.validate((valid: boolean) => {
+    if (valid) {
+      const success = store.addObservation(areaId.value, newObservation.value)
+      if (success) {
+        ElMessage.success('观察记录已添加')
+        showAddObservation.value = false
+        newObservationFormRef.value.resetFields()
+        newObservation.value = {
+          observationDate: new Date().toISOString().split('T')[0],
+          fadingLevel: 'mild' as FadingLevel,
+          crackLength: 0,
+          processingStatus: 'pending' as ProcessingStatus,
+          remarks: '',
+          images: [],
+        }
+      } else {
+        ElMessage.error('添加失败')
+      }
     }
-  } else {
-    ElMessage.error('添加失败')
+  })
+}
+
+function handleEditObservation(obs: ObservationRecord) {
+  editObservation.value = {
+    id: obs.id,
+    observationDate: obs.observationDate,
+    fadingLevel: obs.fadingLevel,
+    crackLength: obs.crackLength,
+    processingStatus: obs.processingStatus,
+    remarks: obs.remarks,
+    images: obs.images || [],
   }
+  showEditObservation.value = true
+}
+
+function submitEditObservation() {
+  editObservationFormRef.value.validate((valid: boolean) => {
+    if (valid) {
+      const success = store.updateObservation(editObservation.value.id, {
+        observationDate: editObservation.value.observationDate,
+        fadingLevel: editObservation.value.fadingLevel,
+        crackLength: editObservation.value.crackLength,
+        processingStatus: editObservation.value.processingStatus,
+        remarks: editObservation.value.remarks,
+        images: editObservation.value.images,
+      })
+      if (success) {
+        ElMessage.success('观察记录已更新')
+        showEditObservation.value = false
+      } else {
+        ElMessage.error('更新失败')
+      }
+    }
+  })
 }
 
 function viewObservationDetail(obs: ObservationRecord) {
   selectedObservation.value = obs
   showObservationDetail.value = true
+}
+
+function editObservationFromDetail() {
+  if (selectedObservation.value) {
+    showObservationDetail.value = false
+    handleEditObservation(selectedObservation.value)
+  }
 }
 
 async function deleteObservation(obs: ObservationRecord) {
@@ -280,6 +360,10 @@ const compareObservations = computed(() => {
     <div class="page-header">
       <el-page-header @back="goBack" content="区域详情">
         <template #extra>
+          <el-button @click="goToEdit">
+            <el-icon><Edit /></el-icon>
+            编辑区域
+          </el-button>
           <el-button type="primary" @click="handleAddObservation">
             <el-icon><Plus /></el-icon>
             新增观察
@@ -350,55 +434,65 @@ const compareObservations = computed(() => {
               </h3>
               <div class="timeline">
                 <div
-                  v-for="(obs, index) in observations"
-                  :key="obs.id"
-                  class="timeline-item"
-                  :class="{ first: index === 0 }"
-                  @click="viewObservationDetail(obs)"
-                >
-                  <div class="timeline-marker">
-                    <div
-                      class="marker-dot"
-                      :class="`risk-${obs.riskLevel}`"
-                    ></div>
-                    <div v-if="index < observations.length - 1" class="marker-line"></div>
+                v-for="(obs, index) in observations"
+                :key="obs.id"
+                class="timeline-item"
+                :class="{ first: index === 0 }"
+              >
+                <div class="timeline-marker" @click="viewObservationDetail(obs)">
+                  <div
+                    class="marker-dot"
+                    :class="`risk-${obs.riskLevel}`"
+                  ></div>
+                  <div v-if="index < observations.length - 1" class="marker-line"></div>
+                </div>
+                <div class="timeline-content" @click="viewObservationDetail(obs)">
+                  <div class="timeline-date">
+                    <span class="date-text">{{ obs.observationDate }}</span>
+                    <span v-if="index === 0" class="badge-latest">最新</span>
                   </div>
-                  <div class="timeline-content">
-                    <div class="timeline-date">
-                      <span class="date-text">{{ obs.observationDate }}</span>
-                      <span v-if="index === 0" class="badge-latest">最新</span>
-                    </div>
-                    <div class="timeline-tags">
-                      <el-tag
-                        :type="riskTagType(obs.riskLevel)"
-                        size="small"
-                        effect="light"
-                      >
-                        {{ getRiskLabel(obs.riskLevel) }}
-                      </el-tag>
-                      <el-tag
-                        :type="fadingTagType(obs.fadingLevel)"
-                        size="small"
-                        effect="light"
-                      >
-                        褪变: {{ getFadingLabel(obs.fadingLevel) }}
-                      </el-tag>
-                      <el-tag size="small" effect="light">
-                        裂隙: {{ obs.crackLength }}cm
-                      </el-tag>
-                      <el-tag
-                        :type="statusTagType(obs.processingStatus)"
-                        size="small"
-                        effect="light"
-                      >
-                        {{ getProcessingLabel(obs.processingStatus) }}
-                      </el-tag>
-                    </div>
-                    <div class="timeline-remarks" v-if="obs.remarks">
-                      {{ obs.remarks }}
-                    </div>
+                  <div class="timeline-tags">
+                    <el-tag
+                      :type="riskTagType(obs.riskLevel)"
+                      size="small"
+                      effect="light"
+                    >
+                      {{ getRiskLabel(obs.riskLevel) }}
+                    </el-tag>
+                    <el-tag
+                      :type="fadingTagType(obs.fadingLevel)"
+                      size="small"
+                      effect="light"
+                    >
+                      褪变: {{ getFadingLabel(obs.fadingLevel) }}
+                    </el-tag>
+                    <el-tag size="small" effect="light">
+                      裂隙: {{ obs.crackLength }}cm
+                    </el-tag>
+                    <el-tag
+                      :type="statusTagType(obs.processingStatus)"
+                      size="small"
+                      effect="light"
+                    >
+                      {{ getProcessingLabel(obs.processingStatus) }}
+                    </el-tag>
+                  </div>
+                  <div class="timeline-remarks" v-if="obs.remarks">
+                    {{ obs.remarks }}
                   </div>
                 </div>
+                <div class="timeline-actions">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :icon="Edit"
+                    text
+                    @click.stop="handleEditObservation(obs)"
+                  >
+                    编辑
+                  </el-button>
+                </div>
+              </div>
                 <el-empty v-if="observations.length === 0" description="暂无观察记录" />
               </div>
             </div>
@@ -691,19 +785,26 @@ const compareObservations = computed(() => {
       title="新增观察记录"
       width="600px"
       :close-on-click-modal="false"
+      @close="newObservationFormRef?.resetFields()"
     >
-      <el-form :model="newObservation" label-width="100px">
-        <el-form-item label="观察日期">
+      <el-form
+        ref="newObservationFormRef"
+        :model="newObservation"
+        :rules="observationFormRules"
+        label-width="100px"
+      >
+        <el-form-item label="观察日期" prop="observationDate">
           <el-date-picker
             v-model="newObservation.observationDate"
             type="date"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
             style="width: 100%"
+            placeholder="请选择观察日期"
           />
         </el-form-item>
-        <el-form-item label="褪变等级">
-          <el-select v-model="newObservation.fadingLevel" style="width: 100%">
+        <el-form-item label="褪变等级" prop="fadingLevel">
+          <el-select v-model="newObservation.fadingLevel" style="width: 100%" placeholder="请选择褪变等级">
             <el-option
               v-for="item in FADING_LEVEL_OPTIONS"
               :key="item.value"
@@ -712,17 +813,18 @@ const compareObservations = computed(() => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="裂隙长度(cm)">
+        <el-form-item label="裂隙长度(cm)" prop="crackLength">
           <el-input-number
             v-model="newObservation.crackLength"
             :min="0"
             :max="500"
             :step="1"
             style="width: 100%"
+            controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="处理状态">
-          <el-select v-model="newObservation.processingStatus" style="width: 100%">
+        <el-form-item label="处理状态" prop="processingStatus">
+          <el-select v-model="newObservation.processingStatus" style="width: 100%" placeholder="请选择处理状态">
             <el-option
               v-for="item in PROCESSING_STATUS_OPTIONS"
               :key="item.value"
@@ -795,6 +897,77 @@ const compareObservations = computed(() => {
           删除记录
         </el-button>
         <el-button @click="showObservationDetail = false">关闭</el-button>
+        <el-button type="primary" @click="editObservationFromDetail">
+          编辑记录
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="showEditObservation"
+      title="编辑观察记录"
+      width="600px"
+      :close-on-click-modal="false"
+      @close="editObservationFormRef?.resetFields()"
+    >
+      <el-form
+        ref="editObservationFormRef"
+        :model="editObservation"
+        :rules="observationFormRules"
+        label-width="100px"
+      >
+        <el-form-item label="观察日期" prop="observationDate">
+          <el-date-picker
+            v-model="editObservation.observationDate"
+            type="date"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+            placeholder="请选择观察日期"
+          />
+        </el-form-item>
+        <el-form-item label="褪变等级" prop="fadingLevel">
+          <el-select v-model="editObservation.fadingLevel" style="width: 100%" placeholder="请选择褪变等级">
+            <el-option
+              v-for="item in FADING_LEVEL_OPTIONS"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="裂隙长度(cm)" prop="crackLength">
+          <el-input-number
+            v-model="editObservation.crackLength"
+            :min="0"
+            :max="500"
+            :step="1"
+            style="width: 100%"
+            controls-position="right"
+          />
+        </el-form-item>
+        <el-form-item label="处理状态" prop="processingStatus">
+          <el-select v-model="editObservation.processingStatus" style="width: 100%" placeholder="请选择处理状态">
+            <el-option
+              v-for="item in PROCESSING_STATUS_OPTIONS"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="editObservation.remarks"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入观察备注"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditObservation = false">取消</el-button>
+        <el-button type="primary" @click="submitEditObservation">保存修改</el-button>
       </template>
     </el-dialog>
   </div>
@@ -956,6 +1129,17 @@ const compareObservations = computed(() => {
   background: var(--color-border-lighter);
   margin-top: 4px;
   min-height: 40px;
+}
+
+.timeline-actions {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: var(--transition-fast);
+  align-self: flex-start;
+}
+
+.timeline-item:hover .timeline-actions {
+  opacity: 1;
 }
 
 .timeline-content {
