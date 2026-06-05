@@ -18,6 +18,7 @@ const evidenceChartRef = ref<HTMLElement | null>(null)
 
 const stats = computed(() => store.dashboardStats)
 const evidenceStats = computed(() => store.evidenceStats)
+const inspectionStats = computed(() => store.inspectionStats)
 
 const riskPieOption = computed(() =>
   createPieOption(stats.value.riskDistribution, '风险等级分布')
@@ -102,6 +103,10 @@ function goToAlerts() {
 
 function goToEvidence() {
   router.push('/evidence')
+}
+
+function goToInspection() {
+  router.push('/inspection')
 }
 </script>
 
@@ -279,6 +284,112 @@ function goToEvidence() {
       </div>
     </div>
 
+    <div class="section-title">
+      <h2>巡检任务统计</h2>
+      <el-button type="primary" link @click="goToInspection">
+        查看详情 <el-icon><ArrowRight /></el-icon>
+      </el-button>
+    </div>
+
+    <div class="stat-grid">
+      <StatCard
+        title="巡检完成率"
+        :value="inspectionStats.completionRate"
+        icon="CircleCheck"
+        color="#67c23a"
+        suffix="%"
+        trend-label="任务完成"
+        @click="goToInspection"
+      />
+      <StatCard
+        title="逾期任务"
+        :value="inspectionStats.overdueTasks"
+        icon="Warning"
+        color="#f56c6c"
+        suffix="个"
+        :trend="1"
+        trend-label="需紧急处理"
+        @click="goToInspection"
+      />
+      <StatCard
+        title="进行中任务"
+        :value="inspectionStats.inProgressTasks"
+        icon="Loading"
+        color="#409eff"
+        suffix="个"
+        trend-label="正在执行"
+        @click="goToInspection"
+      />
+      <StatCard
+        title="巡检计划"
+        :value="inspectionStats.activePlans"
+        icon="Calendar"
+        color="#5f9ea0"
+        suffix="个"
+        trend-label="进行中"
+        @click="goToInspection"
+      />
+      <StatCard
+        title="文保人员"
+        :value="inspectionStats.inspectors.length"
+        icon="User"
+        color="#9b59b6"
+        suffix="人"
+        trend-label="参与巡检"
+        @click="goToInspection"
+      />
+      <StatCard
+        title="总任务数"
+        :value="inspectionStats.totalTasks"
+        icon="DocumentCopy"
+        color="#c4a76c"
+        suffix="个"
+        trend-label="累计创建"
+        @click="goToInspection"
+      />
+    </div>
+
+    <div class="section-title" v-if="inspectionStats.overdueTaskList.length > 0">
+      <h2 class="warning-title">
+        <el-icon><WarningFilled /></el-icon>
+        逾期巡检任务
+      </h2>
+      <el-badge :value="inspectionStats.overdueTaskList.length" type="danger">
+        <el-button type="primary" link @click="goToInspection">
+          查看全部
+        </el-button>
+      </el-badge>
+    </div>
+
+    <div class="overdue-section" v-if="inspectionStats.overdueTaskList.length > 0">
+      <div
+        v-for="task in inspectionStats.overdueTaskList.slice(0, 5)"
+        :key="task.id"
+        class="overdue-item"
+        @click="goToInspection()"
+      >
+        <div class="overdue-icon">
+          <el-icon :size="28" color="#f56c6c">
+            <Clock />
+          </el-icon>
+        </div>
+        <div class="overdue-content">
+          <div class="overdue-header">
+            <span class="overdue-area">{{ task.areaCode }}</span>
+            <span class="overdue-name">{{ task.taskName }}</span>
+            <el-tag type="danger" size="small" effect="dark">
+              已逾期
+            </el-tag>
+          </div>
+          <div class="overdue-cave">洞窟: {{ task.caveName }}</div>
+          <div class="overdue-assignee">执行人: {{ task.assigneeName }}</div>
+        </div>
+        <div class="overdue-time">
+          截止: {{ task.dueDate }}
+        </div>
+      </div>
+    </div>
+
     <div class="chart-grid">
       <div class="chart-card">
         <div ref="riskChartRef" class="chart-container"></div>
@@ -443,6 +554,89 @@ function goToEvidence() {
   font-size: 12px;
   color: var(--color-text-placeholder);
   flex-shrink: 0;
+}
+
+.overdue-section {
+  background: rgba(245, 108, 108, 0.03);
+  border: 1px solid rgba(245, 108, 108, 0.15);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.overdue-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: var(--border-radius-base);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(245, 108, 108, 0.15);
+  }
+}
+
+.overdue-icon {
+  flex-shrink: 0;
+}
+
+.overdue-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.overdue-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.overdue-area {
+  background: var(--color-danger);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.overdue-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overdue-cave {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.overdue-assignee {
+  font-size: 13px;
+  color: var(--color-text-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overdue-time {
+  font-size: 12px;
+  color: var(--color-danger);
+  flex-shrink: 0;
+  font-weight: 500;
 }
 
 .chart-grid {

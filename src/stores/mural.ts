@@ -19,6 +19,14 @@ import type {
   DiseaseType,
   ChangeType,
   TreatmentStatus,
+  Inspector,
+  InspectionPlan,
+  InspectionTask,
+  InspectionStats,
+  InspectionFilterParams,
+  InspectionTaskStatus,
+  InspectionPriority,
+  InspectionTaskCheckItem,
 } from '@/types'
 import {
   mockAreas,
@@ -28,6 +36,9 @@ import {
   mockEvidencePhotos,
   mockImageComparisons,
   mockTreatmentRecords,
+  mockInspectors,
+  mockInspectionPlans,
+  mockInspectionTasks,
 } from '@/utils/mockData'
 import { generateId, calculateRiskLevel, getMonthStartDate } from '@/utils'
 
@@ -38,6 +49,9 @@ const DISEASE_POINTS_STORAGE_KEY = 'mural_disease_points'
 const EVIDENCE_PHOTOS_STORAGE_KEY = 'mural_evidence_photos'
 const IMAGE_COMPARISONS_STORAGE_KEY = 'mural_image_comparisons'
 const TREATMENT_RECORDS_STORAGE_KEY = 'mural_treatment_records'
+const INSPECTORS_STORAGE_KEY = 'mural_inspectors'
+const INSPECTION_PLANS_STORAGE_KEY = 'mural_inspection_plans'
+const INSPECTION_TASKS_STORAGE_KEY = 'mural_inspection_tasks'
 
 function loadAreasFromStorage(): MuralArea[] {
   try {
@@ -179,6 +193,66 @@ function saveTreatmentRecordsToStorage(records: TreatmentRecord[]): void {
   }
 }
 
+function loadInspectorsFromStorage(): Inspector[] {
+  try {
+    const data = localStorage.getItem(INSPECTORS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load inspectors from storage:', e)
+  }
+  return [...mockInspectors]
+}
+
+function saveInspectorsToStorage(inspectors: Inspector[]): void {
+  try {
+    localStorage.setItem(INSPECTORS_STORAGE_KEY, JSON.stringify(inspectors))
+  } catch (e) {
+    console.error('Failed to save inspectors to storage:', e)
+  }
+}
+
+function loadInspectionPlansFromStorage(): InspectionPlan[] {
+  try {
+    const data = localStorage.getItem(INSPECTION_PLANS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load inspection plans from storage:', e)
+  }
+  return [...mockInspectionPlans]
+}
+
+function saveInspectionPlansToStorage(plans: InspectionPlan[]): void {
+  try {
+    localStorage.setItem(INSPECTION_PLANS_STORAGE_KEY, JSON.stringify(plans))
+  } catch (e) {
+    console.error('Failed to save inspection plans to storage:', e)
+  }
+}
+
+function loadInspectionTasksFromStorage(): InspectionTask[] {
+  try {
+    const data = localStorage.getItem(INSPECTION_TASKS_STORAGE_KEY)
+    if (data) {
+      return JSON.parse(data)
+    }
+  } catch (e) {
+    console.error('Failed to load inspection tasks from storage:', e)
+  }
+  return [...mockInspectionTasks]
+}
+
+function saveInspectionTasksToStorage(tasks: InspectionTask[]): void {
+  try {
+    localStorage.setItem(INSPECTION_TASKS_STORAGE_KEY, JSON.stringify(tasks))
+  } catch (e) {
+    console.error('Failed to save inspection tasks to storage:', e)
+  }
+}
+
 function calculateOverdueStatus(lastObservationDate: string): { isOverdue: boolean; overdueDays: number } {
   const lastDate = new Date(lastObservationDate)
   const now = new Date()
@@ -217,6 +291,20 @@ export const useMuralStore = defineStore('mural', () => {
     diseaseType: '',
     changeType: '',
     treatmentStatus: '',
+    keyword: '',
+  })
+
+  const inspectors = ref<Inspector[]>(loadInspectorsFromStorage())
+  const inspectionPlans = ref<InspectionPlan[]>(loadInspectionPlansFromStorage())
+  const inspectionTasks = ref<InspectionTask[]>(loadInspectionTasksFromStorage())
+
+  const inspectionFilterParams = ref<InspectionFilterParams>({
+    caveName: '',
+    areaId: '',
+    assigneeId: '',
+    status: '',
+    priority: '',
+    dateRange: [],
     keyword: '',
   })
 
@@ -986,6 +1074,284 @@ export const useMuralStore = defineStore('mural', () => {
     }
   }
 
+  const filteredInspectionTasks = computed(() => {
+    let result = [...inspectionTasks.value]
+
+    if (inspectionFilterParams.value.caveName) {
+      result = result.filter((t) => t.caveName === inspectionFilterParams.value.caveName)
+    }
+
+    if (inspectionFilterParams.value.areaId) {
+      result = result.filter((t) => t.areaId === inspectionFilterParams.value.areaId)
+    }
+
+    if (inspectionFilterParams.value.assigneeId) {
+      result = result.filter((t) => t.assigneeId === inspectionFilterParams.value.assigneeId)
+    }
+
+    if (inspectionFilterParams.value.status) {
+      result = result.filter((t) => t.status === inspectionFilterParams.value.status)
+    }
+
+    if (inspectionFilterParams.value.priority) {
+      result = result.filter((t) => t.priority === inspectionFilterParams.value.priority)
+    }
+
+    if (inspectionFilterParams.value.dateRange.length === 2) {
+      const [start, end] = inspectionFilterParams.value.dateRange
+      result = result.filter((t) => t.scheduledDate >= start && t.scheduledDate <= end)
+    }
+
+    if (inspectionFilterParams.value.keyword) {
+      const keyword = inspectionFilterParams.value.keyword.toLowerCase()
+      result = result.filter(
+        (t) =>
+          t.taskName.toLowerCase().includes(keyword) ||
+          t.assigneeName.toLowerCase().includes(keyword) ||
+          t.areaCode.toLowerCase().includes(keyword)
+      )
+    }
+
+    result.sort((a, b) => {
+      const priorityOrder: Record<InspectionPriority, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
+      if (priorityDiff !== 0) return priorityDiff
+      return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
+    })
+
+    return result
+  })
+
+  const inspectionStats = computed<InspectionStats>(() => {
+    const totalTasks = inspectionTasks.value.length
+    const completedTasks = inspectionTasks.value.filter((t) => t.status === 'completed').length
+    const pendingTasks = inspectionTasks.value.filter((t) => t.status === 'pending').length
+    const inProgressTasks = inspectionTasks.value.filter((t) => t.status === 'inProgress').length
+    const overdueTasks = inspectionTasks.value.filter((t) => t.status === 'overdue').length
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+    const totalPlans = inspectionPlans.value.length
+    const activePlans = inspectionPlans.value.filter((p) => p.isActive).length
+
+    const workloadMap: Record<string, number> = {}
+    inspectors.value.forEach((i) => {
+      workloadMap[i.name] = i.workload
+    })
+    const workloadDistribution = Object.entries(workloadMap).map(([name, value]) => ({ name, value }))
+
+    const caveTaskMap: Record<string, number> = {}
+    inspectionTasks.value.forEach((t) => {
+      caveTaskMap[t.caveName] = (caveTaskMap[t.caveName] || 0) + 1
+    })
+    const caveTaskDistribution = Object.entries(caveTaskMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+
+    const monthlyMap: Record<string, { completed: number; total: number }> = {}
+    inspectionTasks.value.forEach((t) => {
+      const month = t.scheduledDate.substring(0, 7)
+      if (!monthlyMap[month]) {
+        monthlyMap[month] = { completed: 0, total: 0 }
+      }
+      monthlyMap[month].total++
+      if (t.status === 'completed') {
+        monthlyMap[month].completed++
+      }
+    })
+    const monthlyCompletion = Object.entries(monthlyMap)
+      .map(([date, stats]) => ({ date, ...stats }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    const recentTasks = [...inspectionTasks.value]
+      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+      .slice(0, 10)
+
+    const overdueTaskList = inspectionTasks.value
+      .filter((t) => t.status === 'overdue')
+      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+
+    return {
+      totalTasks,
+      completedTasks,
+      pendingTasks,
+      inProgressTasks,
+      overdueTasks,
+      completionRate,
+      totalPlans,
+      activePlans,
+      inspectors: inspectors.value,
+      workloadDistribution,
+      caveTaskDistribution,
+      monthlyCompletion,
+      recentTasks,
+      overdueTaskList,
+    }
+  })
+
+  const pendingInspectionTasks = computed(() => inspectionTasks.value.filter((t) => t.status === 'pending'))
+  const inProgressInspectionTasks = computed(() => inspectionTasks.value.filter((t) => t.status === 'inProgress'))
+  const completedInspectionTasks = computed(() => inspectionTasks.value.filter((t) => t.status === 'completed'))
+  const overdueInspectionTasks = computed(() => inspectionTasks.value.filter((t) => t.status === 'overdue'))
+
+  function getInspectionTasksByDate(date: string): InspectionTask[] {
+    return inspectionTasks.value.filter((t) => t.scheduledDate === date)
+  }
+
+  function getInspectionTasksByPlanId(planId: string): InspectionTask[] {
+    return inspectionTasks.value.filter((t) => t.planId === planId)
+  }
+
+  function getInspectionTasksByAssigneeId(assigneeId: string): InspectionTask[] {
+    return inspectionTasks.value.filter((t) => t.assigneeId === assigneeId)
+  }
+
+  function getInspectionTasksByCaveName(caveName: string): InspectionTask[] {
+    return inspectionTasks.value.filter((t) => t.caveName === caveName)
+  }
+
+  function addInspectionPlan(data: Omit<InspectionPlan, 'id' | 'createdAt' | 'updatedAt'>): InspectionPlan {
+    const now = new Date().toISOString()
+    const newPlan: InspectionPlan = {
+      ...data,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+    inspectionPlans.value.unshift(newPlan)
+    saveInspectionPlansToStorage(inspectionPlans.value)
+    return newPlan
+  }
+
+  function updateInspectionPlan(id: string, data: Partial<Omit<InspectionPlan, 'id' | 'createdAt'>>): InspectionPlan | null {
+    const index = inspectionPlans.value.findIndex((p) => p.id === id)
+    if (index === -1) return null
+
+    const updated: InspectionPlan = {
+      ...inspectionPlans.value[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    }
+    inspectionPlans.value[index] = updated
+    saveInspectionPlansToStorage(inspectionPlans.value)
+    return updated
+  }
+
+  function deleteInspectionPlan(id: string): boolean {
+    const index = inspectionPlans.value.findIndex((p) => p.id === id)
+    if (index === -1) return false
+    inspectionPlans.value.splice(index, 1)
+    inspectionTasks.value = inspectionTasks.value.filter((t) => t.planId !== id)
+    saveInspectionPlansToStorage(inspectionPlans.value)
+    saveInspectionTasksToStorage(inspectionTasks.value)
+    return true
+  }
+
+  function addInspectionTask(data: Omit<InspectionTask, 'id' | 'createdAt' | 'updatedAt'>): InspectionTask {
+    const now = new Date().toISOString()
+    const newTask: InspectionTask = {
+      ...data,
+      id: generateId(),
+      createdAt: now,
+      updatedAt: now,
+    }
+    inspectionTasks.value.unshift(newTask)
+    saveInspectionTasksToStorage(inspectionTasks.value)
+    return newTask
+  }
+
+  function updateInspectionTask(id: string, data: Partial<Omit<InspectionTask, 'id' | 'createdAt'>>): InspectionTask | null {
+    const index = inspectionTasks.value.findIndex((t) => t.id === id)
+    if (index === -1) return null
+
+    const updated: InspectionTask = {
+      ...inspectionTasks.value[index],
+      ...data,
+      updatedAt: new Date().toISOString(),
+    }
+    inspectionTasks.value[index] = updated
+    saveInspectionTasksToStorage(inspectionTasks.value)
+
+    if (updated.hasAbnormality && data.hasAbnormality) {
+      const area = areas.value.find((a) => a.id === updated.areaId)
+      if (area) {
+        addAlert({
+          areaId: updated.areaId,
+          areaCode: updated.areaCode,
+          caveName: updated.caveName,
+          theme: area.theme,
+          type: 'newRisk',
+          title: '巡检发现异常',
+          description: updated.abnormalityDescription || '巡检中发现异常情况，需要关注',
+          riskLevel: 'medium',
+        })
+      }
+    }
+
+    return updated
+  }
+
+  function startInspectionTask(id: string): InspectionTask | null {
+    return updateInspectionTask(id, {
+      status: 'inProgress',
+      startedAt: new Date().toISOString().split('T')[0],
+    })
+  }
+
+  function completeInspectionTask(
+    id: string,
+    findings: string,
+    hasAbnormality: boolean,
+    abnormalityDescription?: string
+  ): InspectionTask | null {
+    return updateInspectionTask(id, {
+      status: 'completed',
+      completedAt: new Date().toISOString().split('T')[0],
+      findings,
+      hasAbnormality,
+      abnormalityDescription,
+    })
+  }
+
+  function deleteInspectionTask(id: string): boolean {
+    const index = inspectionTasks.value.findIndex((t) => t.id === id)
+    if (index === -1) return false
+    inspectionTasks.value.splice(index, 1)
+    saveInspectionTasksToStorage(inspectionTasks.value)
+    return true
+  }
+
+  function updateCheckItem(taskId: string, checkItemId: string, isChecked: boolean, remark?: string): boolean {
+    const task = inspectionTasks.value.find((t) => t.id === taskId)
+    if (!task) return false
+
+    const checkItem = task.checkItems.find((ci) => ci.id === checkItemId)
+    if (!checkItem) return false
+
+    checkItem.isChecked = isChecked
+    if (remark !== undefined) {
+      checkItem.remark = remark
+    }
+
+    saveInspectionTasksToStorage(inspectionTasks.value)
+    return true
+  }
+
+  function setInspectionFilterParams(params: Partial<InspectionFilterParams>): void {
+    inspectionFilterParams.value = { ...inspectionFilterParams.value, ...params }
+  }
+
+  function resetInspectionFilterParams(): void {
+    inspectionFilterParams.value = {
+      caveName: '',
+      areaId: '',
+      assigneeId: '',
+      status: '',
+      priority: '',
+      dateRange: [],
+      keyword: '',
+    }
+  }
+
   return {
     areas,
     observations,
@@ -999,6 +1365,10 @@ export const useMuralStore = defineStore('mural', () => {
     imageComparisons,
     treatmentRecords,
     evidenceFilterParams,
+    inspectors,
+    inspectionPlans,
+    inspectionTasks,
+    inspectionFilterParams,
     filteredAreas,
     unreadAlerts,
     highRiskAreas,
@@ -1007,8 +1377,14 @@ export const useMuralStore = defineStore('mural', () => {
     filteredImageComparisons,
     filteredTreatmentRecords,
     filteredDiseasePoints,
+    filteredInspectionTasks,
+    pendingInspectionTasks,
+    inProgressInspectionTasks,
+    completedInspectionTasks,
+    overdueInspectionTasks,
     dashboardStats,
     evidenceStats,
+    inspectionStats,
     getAreaById,
     getObservationsByAreaId,
     getRiskTrendByAreaId,
@@ -1046,5 +1422,20 @@ export const useMuralStore = defineStore('mural', () => {
     deleteTreatmentRecord,
     setEvidenceFilterParams,
     resetEvidenceFilterParams,
+    getInspectionTasksByDate,
+    getInspectionTasksByPlanId,
+    getInspectionTasksByAssigneeId,
+    getInspectionTasksByCaveName,
+    addInspectionPlan,
+    updateInspectionPlan,
+    deleteInspectionPlan,
+    addInspectionTask,
+    updateInspectionTask,
+    deleteInspectionTask,
+    startInspectionTask,
+    completeInspectionTask,
+    updateCheckItem,
+    setInspectionFilterParams,
+    resetInspectionFilterParams,
   }
 })

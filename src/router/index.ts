@@ -7,6 +7,7 @@ import AreaDetail from '@/views/AreaDetail.vue'
 import AreaForm from '@/views/AreaForm.vue'
 import AlertBoard from '@/views/AlertBoard.vue'
 import EvidenceCenter from '@/views/EvidenceCenter.vue'
+import InspectionCenter from '@/views/InspectionCenter.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -78,6 +79,15 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '影像取证中心',
           icon: 'Camera',
+        },
+      },
+      {
+        path: 'inspection',
+        name: 'InspectionCenter',
+        component: InspectionCenter,
+        meta: {
+          title: '巡检排期中心',
+          icon: 'Calendar',
         },
       },
     ],

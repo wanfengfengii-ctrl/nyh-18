@@ -10,6 +10,10 @@ import type {
   TreatmentRecord,
   CrackExtension,
   ColorSample,
+  Inspector,
+  InspectionPlan,
+  InspectionTask,
+  InspectionTaskCheckItem,
 } from '@/types'
 
 function calculateRiskLevelLocal(
@@ -308,3 +312,121 @@ function diseaseTypeToText(type: string): string {
   }
   return map[type] || type
 }
+
+export const mockInspectors: Inspector[] = [
+  { id: 'INS_001', name: '张明远', avatar: '', department: '壁画保护科', phone: '13800138001', email: 'zhangmy@mogao.com', specialty: ['壁画修复', '病害分析'], taskCount: 45, completedCount: 38, workload: 85 },
+  { id: 'INS_002', name: '李淑华', avatar: '', department: '文物修复室', phone: '13800138002', email: 'lish@mogao.com', specialty: ['颜料分析', '影像记录'], taskCount: 38, completedCount: 35, workload: 72 },
+  { id: 'INS_003', name: '王建国', avatar: '', department: '监测中心', phone: '13800138003', email: 'wangjg@mogao.com', specialty: ['环境监测', '结构检测'], taskCount: 52, completedCount: 48, workload: 92 },
+  { id: 'INS_004', name: '陈思雨', avatar: '', department: '壁画保护科', phone: '13800138004', email: 'chensy@mogao.com', specialty: ['壁画修复', '颜料分析'], taskCount: 32, completedCount: 29, workload: 65 },
+  { id: 'INS_005', name: '刘志强', avatar: '', department: '研究室', phone: '13800138005', email: 'liuzq@mogao.com', specialty: ['病害分析', '结构检测'], taskCount: 28, completedCount: 26, workload: 58 },
+  { id: 'INS_006', name: '赵晓燕', avatar: '', department: '保管部', phone: '13800138006', email: 'zhaoxy@mogao.com', specialty: ['影像记录', '环境监测'], taskCount: 41, completedCount: 37, workload: 78 },
+]
+
+const standardCheckItems: InspectionTaskCheckItem[] = [
+  { id: 'CI_001', name: '表面状态检查', description: '检查壁画表面是否有灰尘、污渍等', isRequired: true, isChecked: false },
+  { id: 'CI_002', name: '颜料层检查', description: '检查颜料层是否有起甲、脱落等现象', isRequired: true, isChecked: false },
+  { id: 'CI_003', name: '裂隙检查', description: '检查是否有新的裂隙或裂隙扩展', isRequired: true, isChecked: false },
+  { id: 'CI_004', name: '霉斑检查', description: '检查是否有霉斑滋生', isRequired: false, isChecked: false },
+  { id: 'CI_005', name: '盐析检查', description: '检查是否有盐析现象', isRequired: false, isChecked: false },
+  { id: 'CI_006', name: '环境温湿度记录', description: '记录当前环境的温度和湿度', isRequired: true, isChecked: false },
+]
+
+export const mockInspectionPlans: InspectionPlan[] = []
+export const mockInspectionTasks: InspectionTask[] = []
+
+const cavePlans = [
+  { caveName: '第257窟', planName: '第257窟日常巡检计划', cycleType: 'weekly' as const, areas: [0, 1] },
+  { caveName: '第259窟', planName: '第259窟定期巡检计划', cycleType: 'biweekly' as const, areas: [2] },
+  { caveName: '第275窟', planName: '第275窟重点保护计划', cycleType: 'weekly' as const, areas: [3] },
+  { caveName: '第285窟', planName: '第285窟综合巡检计划', cycleType: 'weekly' as const, areas: [4, 5] },
+  { caveName: '第428窟', planName: '第428窟月度巡检计划', cycleType: 'monthly' as const, areas: [6, 7] },
+  { caveName: '第45窟', planName: '第45窟日常巡检计划', cycleType: 'weekly' as const, areas: [8, 9] },
+  { caveName: '第57窟', planName: '第57窟重点监测计划', cycleType: 'daily' as const, areas: [10, 11] },
+  { caveName: '第220窟', planName: '第220窟季度巡检计划', cycleType: 'quarterly' as const, areas: [12, 13] },
+]
+
+let planIndex = 0
+let taskIndex = 0
+
+cavePlans.forEach((planDef, planIdx) => {
+  planIndex++
+  const assignees = mockInspectors.slice(planIdx % 3, (planIdx % 3) + 2).map((i) => i.id)
+  const startDate = addDays(now, -30)
+
+  const plan: InspectionPlan = {
+    id: `PLAN_${String(planIndex).padStart(4, '0')}`,
+    planName: planDef.planName,
+    caveName: planDef.caveName,
+    areaIds: planDef.areas.map((i) => `AREA_${String(i + 1).padStart(4, '0')}`),
+    cycleType: planDef.cycleType,
+    startDate: formatDateLocal(startDate),
+    assigneeIds: assignees,
+    priority: planDef.cycleType === 'daily' ? 'high' : planDef.cycleType === 'weekly' ? 'medium' : 'low',
+    reminderDays: 1,
+    description: `${planDef.caveName}${planDef.cycleType === 'daily' ? '每日' : planDef.cycleType === 'weekly' ? '每周' : '定期'}巡检计划，确保壁画保存状态良好。`,
+    createdBy: '系统管理员',
+    createdAt: formatDateLocal(startDate),
+    updatedAt: formatDateLocal(now),
+    isActive: true,
+  }
+  mockInspectionPlans.push(plan)
+
+  const taskCount = planDef.cycleType === 'daily' ? 15 : planDef.cycleType === 'weekly' ? 8 : 3
+
+  for (let t = 0; t < taskCount; t++) {
+    const isFuture = t < 2
+    const isPast = t >= taskCount - 2
+    const isCurrent = !isFuture && !isPast
+
+    let status: InspectionTask['status']
+    if (isFuture) {
+      status = 'pending'
+    } else if (isPast) {
+      status = Math.random() > 0.1 ? 'completed' : 'overdue'
+    } else {
+      status = Math.random() > 0.5 ? 'inProgress' : 'pending'
+    }
+
+    const assignee = mockInspectors[taskIndex % mockInspectors.length]
+    const areaIdx = planDef.areas[taskIndex % planDef.areas.length]
+    const area = areaDefinitions[areaIdx]
+    const areaId = `AREA_${String(areaIdx + 1).padStart(4, '0')}`
+    const scheduledDate = addDays(now, (t - taskCount / 2) * (planDef.cycleType === 'daily' ? 1 : planDef.cycleType === 'weekly' ? 7 : 30))
+
+    taskIndex++
+
+    const checkItems = standardCheckItems.map((ci) => ({
+      ...ci,
+      id: `${ci.id}_${taskIndex}`,
+      isChecked: status === 'completed',
+    }))
+
+    const hasAbnormality = status === 'completed' && Math.random() > 0.7
+
+    const task: InspectionTask = {
+      id: `TASK_${String(taskIndex).padStart(4, '0')}`,
+      planId: plan.id,
+      taskName: `${planDef.caveName} - ${area.theme} 巡检`,
+      caveName: planDef.caveName,
+      areaId,
+      areaCode: area.areaCode,
+      assigneeId: assignee.id,
+      assigneeName: assignee.name,
+      status,
+      priority: plan.priority,
+      scheduledDate: formatDateLocal(scheduledDate),
+      dueDate: formatDateLocal(addDays(scheduledDate, 1)),
+      startedAt: status !== 'pending' ? formatDateLocal(scheduledDate) : undefined,
+      completedAt: status === 'completed' ? formatDateLocal(addDays(scheduledDate, Math.random() > 0.5 ? 0 : 1)) : undefined,
+      checkItems,
+      findings: status === 'completed' ? (hasAbnormality ? '检查发现部分区域存在异常，已记录并上报。' : '检查完成，壁画状态良好，未发现明显异常。') : '',
+      hasAbnormality,
+      abnormalityDescription: hasAbnormality ? '发现局部颜料层有轻微起甲现象，建议进一步观察。' : undefined,
+      photos: status === 'completed' ? [`https://picsum.photos/seed/task${taskIndex}/800/600`] : [],
+      createdBy: '系统',
+      createdAt: formatDateLocal(addDays(scheduledDate, -7)),
+      updatedAt: formatDateLocal(now),
+    }
+    mockInspectionTasks.push(task)
+  }
+})

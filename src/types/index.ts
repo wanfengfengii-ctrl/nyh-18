@@ -360,3 +360,141 @@ export const TREATMENT_STATUS_OPTIONS: { value: TreatmentStatus; label: string; 
   { value: 'completed', label: '修复完成', color: '#409eff' },
   { value: 'verified', label: '已验收', color: '#67c23a' },
 ]
+
+export type InspectionCycleType = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'custom'
+export type InspectionTaskStatus = 'pending' | 'inProgress' | 'completed' | 'overdue' | 'cancelled'
+export type InspectionPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+export interface Inspector {
+  id: string
+  name: string
+  avatar: string
+  department: string
+  phone: string
+  email: string
+  specialty: string[]
+  taskCount: number
+  completedCount: number
+  workload: number
+}
+
+export interface InspectionPlan {
+  id: string
+  planName: string
+  caveName: string
+  areaIds: string[]
+  cycleType: InspectionCycleType
+  customDays?: number
+  startDate: string
+  endDate?: string
+  assigneeIds: string[]
+  priority: InspectionPriority
+  reminderDays: number
+  description: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  isActive: boolean
+}
+
+export interface InspectionTaskCheckItem {
+  id: string
+  name: string
+  description: string
+  isRequired: boolean
+  isChecked: boolean
+  remark?: string
+}
+
+export interface InspectionTask {
+  id: string
+  planId: string
+  taskName: string
+  caveName: string
+  areaId: string
+  areaCode: string
+  assigneeId: string
+  assigneeName: string
+  status: InspectionTaskStatus
+  priority: InspectionPriority
+  scheduledDate: string
+  dueDate: string
+  startedAt?: string
+  completedAt?: string
+  checkItems: InspectionTaskCheckItem[]
+  findings: string
+  hasAbnormality: boolean
+  abnormalityDescription?: string
+  photos: string[]
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InspectionStats {
+  totalTasks: number
+  completedTasks: number
+  pendingTasks: number
+  inProgressTasks: number
+  overdueTasks: number
+  completionRate: number
+  totalPlans: number
+  activePlans: number
+  inspectors: Inspector[]
+  workloadDistribution: { name: string; value: number }[]
+  caveTaskDistribution: { name: string; value: number }[]
+  monthlyCompletion: { date: string; completed: number; total: number }[]
+  recentTasks: InspectionTask[]
+  overdueTaskList: InspectionTask[]
+}
+
+export interface InspectionFilterParams {
+  caveName: string
+  areaId: string
+  assigneeId: string
+  status: InspectionTaskStatus | ''
+  priority: InspectionPriority | ''
+  dateRange: [string, string] | []
+  keyword: string
+}
+
+export const INSPECTION_CYCLE_OPTIONS: { value: InspectionCycleType; label: string }[] = [
+  { value: 'daily', label: '每日' },
+  { value: 'weekly', label: '每周' },
+  { value: 'biweekly', label: '每两周' },
+  { value: 'monthly', label: '每月' },
+  { value: 'quarterly', label: '每季度' },
+  { value: 'custom', label: '自定义' },
+]
+
+export const INSPECTION_TASK_STATUS_OPTIONS: { value: InspectionTaskStatus; label: string; color: string }[] = [
+  { value: 'pending', label: '待执行', color: '#909399' },
+  { value: 'inProgress', label: '进行中', color: '#409eff' },
+  { value: 'completed', label: '已完成', color: '#67c23a' },
+  { value: 'overdue', label: '已逾期', color: '#f56c6c' },
+  { value: 'cancelled', label: '已取消', color: '#c0c4cc' },
+]
+
+export const INSPECTION_PRIORITY_OPTIONS: { value: InspectionPriority; label: string; color: string }[] = [
+  { value: 'low', label: '低', color: '#909399' },
+  { value: 'medium', label: '中', color: '#409eff' },
+  { value: 'high', label: '高', color: '#e6a23c' },
+  { value: 'urgent', label: '紧急', color: '#f56c6c' },
+]
+
+export const INSPECTOR_DEPARTMENTS: string[] = [
+  '壁画保护科',
+  '文物修复室',
+  '监测中心',
+  '研究室',
+  '保管部',
+]
+
+export const INSPECTOR_SPECIALTIES: string[] = [
+  '壁画修复',
+  '环境监测',
+  '病害分析',
+  '影像记录',
+  '颜料分析',
+  '结构检测',
+]
